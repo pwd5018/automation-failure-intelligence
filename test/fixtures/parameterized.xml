@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites>
+  <testsuite name="Search" tests="2" failures="0">
+    <testcase classname="SearchTests" name="search returns results" parameters="browser=chrome">
+      <failure message="Expected result count 3 but received 0">Assertion failed at search.ts:18</failure>
+    </testcase>
+    <testcase classname="SearchTests" name="search returns results" parameters="browser=firefox">
+      <failure message="Expected result count 3 but received 0">Assertion failed at search.ts:18</failure>
+    </testcase>
+  </testsuite>
+</testsuites>
+
