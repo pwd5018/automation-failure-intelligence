@@ -199,7 +199,8 @@ function parseJUnit(xml: string, metadata: Record<string, any>): TestRun {
   }
   const summary = summarize(logicalTests, rawRecords);
   if (rawRecords.length === 0) warnings.push("No testcase records were found in the report.");
-  if (rawRecords.some((record, index) => rawRecords.slice(0, index).some(previous => previous.identity === record.identity))) warnings.push("Repeated test names are counted as separate results unless an exact configured skipped-terminal retry pair is found.");
+  const pairedRecordIds = new Set(logicalTests.filter(test => test.attempts.length === 2).flatMap(test => test.attempts.map(attempt => attempt.id)));
+  if (rawRecords.some((record, index) => rawRecords.slice(0, index).some(previous => previous.identity === record.identity && (!pairedRecordIds.has(record.id) || !pairedRecordIds.has(previous.id))))) warnings.push("Repeated test names are counted as separate results unless an exact configured skipped-terminal retry pair is found.");
   const id = `run_${crypto.createHash("sha256").update(`${metadata.externalRunId || ""}|${xml}`).digest("hex").slice(0, 16)}`;
   return { id, projectId: config.projectId, build: text(metadata.build || "local"), environment: text(metadata.environment || "default"), adapter: "junit-generic", adapterVersion: "0.4.0", configurationVersion: config.version, retryAnalyzerEnabled: config.retryAnalyzerEnabled, maxRetries: config.maxRetries, retryReportingProfile: config.skippedSequencePolicy, skippedLogicalTestPolicy: config.ordinarySkippedPolicy, ingestedAt: new Date().toISOString(), rawReport: xml, warnings, rawRecords, logicalTests, summary, resultStatus: summary.failed ? "FAILED" : rawRecords.length ? "PASSED" : "UNKNOWN", processingStatus: warnings.length ? "WARNING" : "COMPLETE" };
 }
@@ -255,4 +256,3 @@ app.post("/api/demo/seed", (req, res) => {
 });
 
 app.listen(Number(process.env.PORT) || 3000, () => console.log("Automation Failure Intelligence running on http://localhost:3000"));
-
