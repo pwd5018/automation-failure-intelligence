@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites>
+  <testsuite name="Checkout" tests="1" failures="0">
+    <testcase classname="CheckoutTests" name="guest checkout">
+      <failure message="Expected status 200 but received 500">Error: Expected status 200 but received 500 at checkout.ts:42</failure>
+    </testcase>
+    <testcase classname="CheckoutTests" name="guest checkout retry 1" time="0.2" />
+  </testsuite>
+</testsuites>
+
