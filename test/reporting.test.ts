@@ -92,9 +92,17 @@ test("demo scenarios load successfully", async () => {
   const response = await fetch(`${baseUrl}/api/demo/seed`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ scenario: "ambiguous-three-records", retryAnalyzerEnabled: true, maxRetries: 1 }) });
   const result = await response.json() as any;
   assert.equal(response.status, 200);
-  assert.equal(result.preview.summary.logicalTests, 2);
+  assert.equal(result.preview.summary.logicalTests, 6);
   assert.equal(result.preview.summary.failed, 1);
 });
 
-test("malformed XML is rejected", async () => { assert.equal((await upload("malformed.xml")).status, 400); });
+test("each demo scenario contains at least five raw test examples", async () => {
+  for (const scenario of ["skipped-pass", "skipped-failed", "ambiguous-three-records", "parameterized"]) {
+    const response = await fetch(`${baseUrl}/api/demo/seed`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ scenario, retryAnalyzerEnabled: true, maxRetries: 1, externalRunId: `five-${scenario}` }) });
+    const result = await response.json() as any;
+    assert.equal(response.status, 200);
+    assert.ok(result.preview.summary.rawTestcaseRecords >= 5, `${scenario} should have at least five raw records`);
+  }
+});
 
+test("malformed XML is rejected", async () => { assert.equal((await upload("malformed.xml")).status, 400); });
