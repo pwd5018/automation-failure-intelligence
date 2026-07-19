@@ -1,6 +1,6 @@
 # Automation Failure Intelligence
 
-A vertical-slice prototype for grouping noisy automated test failures into actionable Jira-ready failure groups.
+A small hosted sandbox for inspecting automated test results and grouping confirmed failures.
 
 ## Run it
 
@@ -9,7 +9,7 @@ npm install
 npm run dev
 ```
 
-Open http://localhost:3000. Use **Load demo data** or upload a JUnit XML report.
+Open http://localhost:3000.
 
 Run the regression suite:
 
@@ -17,75 +17,54 @@ Run the regression suite:
 npm test
 ```
 
-The fixture suite currently covers recovered retries, parameterized tests, duplicate uploads, and malformed XML. New customer-discovered report behavior should be added as a fixture and regression test before changing ingestion logic.
+## Current behavior
 
-## Current slice
+The current model is intentionally simple and predictable:
 
-- JUnit XML upload
-- Failure and error parsing
-- Stable-ish normalization for URLs, timestamps, IDs, and line numbers
-- Deterministic failure signatures
-- Exact-signature grouping across runs
-- Failure-group dashboard
-- Human classification and investigation notes
-- Jira issue-key linking boundary
-- Raw testcase, test-definition, logical-invocation, and physical-attempt modeling
-- Conservative unresolved-group handling for ambiguous duplicate identities
-- Project-scoped skipped-then-terminal retry interpretation
-- Recovered/flaky indicators with separate result and processing status
-- Ingestion preview endpoint with warnings
-- Duplicate report detection
-- Raw report, raw status, semantic-role, profile, adapter, and resolution-audit retention
+- Every raw testcase is one logical result by default.
+- `PASSED` counts as passed.
+- `FAILED` and `ERROR` count as failed.
+- `SKIPPED` counts as skipped.
+- Repeated names are not merged automatically.
+- When retry analyzer behavior is explicitly enabled, only an exact ordered `SKIPPED â†’ PASSED` or `SKIPPED â†’ FAILED` pair is collapsed into one retry result.
+- `SKIPPED â†’ FAILED â†’ PASSED` becomes a failed retry result followed by a separate passed result.
+- Parameter/data-provider identifiers remain part of identity.
 
-## Retry configuration
+When retry behavior is disabled, skipped records are never treated as failed or retried.
 
-Retry interpretation is configured before ingestion at the project/source level. The default is conservative:
+## Configuration
 
-```text
-retryAnalyzerEnabled: false
-maxRetries: 0
-skippedSequencePolicy: NORMAL_SKIPPED_SEMANTICS
-ordinarySkippedPolicy: COUNT_AS_SKIPPED
-ambiguousDuplicatePolicy: REQUIRE_REVIEW
+Retry behavior can be saved per project through `PUT /api/retry-config`:
+
+```json
+{
+  "projectId": "checkout",
+  "retryAnalyzerEnabled": true,
+  "ordinarySkippedPolicy": "COUNT_AS_SKIPPED"
+}
 ```
 
-Enable the known retry-analyzer behavior explicitly:
+The configuration is currently in memory and is applied to later uploads using the same `projectId`.
 
-```text
-retryAnalyzerEnabled: true
-maxRetries: 1
-skippedSequencePolicy: SKIPPED_THEN_TERMINAL_IS_RETRY
-```
+## Dashboard demos
 
-Save configuration with `PUT /api/retry-config` and provide the same `projectId` when previewing or ingesting a report. The run stores the configuration version, enabled state, retry budget, and skipped policy used for interpretation. A direct upload may also provide these fields for one-off preview/testing.
+The dashboard includes scenarios for:
 
-The dashboard includes selectable demo scenarios for `SKIPPED â†’ PASSED`, `SKIPPED â†’ FAILED`, the ambiguous `SKIPPED â†’ FAILED â†’ PASSED` sequence, and parameterized rows. Each scenario can be loaded using the current project configuration or a retry-disabled/retry-enabled preset. Previously loaded runs remain available in the run selector for comparison.
+- `SKIPPED â†’ PASSED`
+- `SKIPPED â†’ FAILED`
+- `SKIPPED â†’ FAILED â†’ PASSED`
+- Parameterized rows
 
-## Reporting model
+Each scenario can be loaded with retry behavior enabled or disabled. Recent ingested runs can be selected from the run history control.
 
-Retries are represented as attempts inside one logical invocation. Duplicate records are not automatically paired when they could be retries or separate parameterized/data-provider invocations. Such records are retained in an unresolved group and excluded from resolved totals until explicitly classified.
+## API
 
-The opt-in project profile `SKIPPED_THEN_TERMINAL_IS_RETRY` recognizes exactly two ordered records for the same invocation when the first is `SKIPPED` and the second is `PASSED` or `FAILED`. The skipped record retains `rawStatus: "SKIPPED"` and receives semantic role `RETRY_TRIGGERED_FAILURE`; it does not count as a skipped logical test. `NORMAL_SKIPPED_SEMANTICS` keeps ordinary skipped behavior and does not apply this retry interpretation. Empty `<skipped/>` elements are treated as skipped based on element presence, not text content.
+- `POST /api/test-runs/preview` â€” inspect a JUnit XML report without storing it.
+- `POST /api/test-runs` â€” ingest a JUnit XML report.
+- `GET /api/test-runs` â€” list ingested runs.
+- `GET /api/failure-groups` â€” list confirmed failure groups.
+- `GET/PUT /api/retry-config` â€” read or save project retry settings.
+- `POST /api/demo/seed` â€” load a demo scenario.
 
-Each run exposes `resultStatus` (`PASSED`, `FAILED`, `PARTIAL`, or `UNKNOWN`) separately from `processingStatus` (`COMPLETE` or `NEEDS_REVIEW`). A run with unresolved groups is never reported as fully passed. Unresolved records may contribute to raw physical-record counts, but never to resolved outcomes, failure groups, Jira recommendations, or defect alerts.
-
-An unresolved group can be resolved for the current run through:
-
-```text
-POST /api/test-runs/:runId/unresolved-groups/:groupId/resolve
-{"type":"TREAT_AS_RETRIES"}
-```
-
-Supported types are `TREAT_AS_RETRIES`, `TREAT_AS_SEPARATE_INVOCATIONS`, `TREAT_FIRST_RETRY_THEN_SEPARATE`, and `IGNORE_RECORDS`. The third option handles an ambiguous sequence such as `SKIPPED â†’ FAILED â†’ PASSED` as a failed retry pair followed by a separate passed invocation. Every resolution retains the raw records and adds a resolution-audit entry before recalculating totals. The current API supports `THIS_GROUP`; project-rule and run-wide resolution scopes remain future work.
-
-Preview a report without changing dashboard data:
-
-```bash
-curl -F file=@report.xml -F build=build-123 -F environment=staging \
-  http://localhost:3000/api/test-runs/preview
-```
-
-The preview reports physical attempts, estimated logical tests, possible retries, applied identity rules, and warnings.
-
-The current prototype uses in-memory storage so the product workflow can be validated quickly. PostgreSQL persistence, authenticated project configuration management, and real Jira API linking remain production-foundation work. Framework-adapter expansion is intentionally out of scope for this slice.
+The prototype uses in-memory storage. Persistent storage, authentication, deeper framework-specific adapters, and real Jira integration are future work.
 
