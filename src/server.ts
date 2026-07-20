@@ -3,6 +3,7 @@ import multer from "multer";
 import { XMLParser, XMLValidator } from "fast-xml-parser";
 import crypto from "node:crypto";
 import path from "node:path";
+import { createStorage, type Storage } from "./storage.js";
 
 type RawStatus = "PASSED" | "FAILED" | "SKIPPED" | "ERROR" | "UNKNOWN";
 type Status = "passed" | "failed" | "skipped" | "error" | "unknown";
@@ -103,6 +104,7 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 
 const runs = new Map<string, TestRun>();
 const groups = new Map<string, FailureGroup>();
 const retryConfigs = new Map<string, RetryConfig>();
+let storage: Storage;
 
 app.use(express.json());
 app.use(express.static(path.join(process.cwd(), "public")));
@@ -214,11 +216,13 @@ function addFailureGroup(run: TestRun, test: LogicalTest): void {
   }
 }
 
-function ingest(run: TestRun): TestRun {
+async function ingest(run: TestRun): Promise<TestRun> {
   const existing = runs.get(run.id);
   if (existing) { existing.duplicate = true; return existing; }
   runs.set(run.id, run);
   run.logicalTests.filter(test => test.finalStatus === "failed" || test.finalStatus === "error").forEach(test => addFailureGroup(run, test));
+  await storage.saveRun(publicRun(run));
+  for (const group of groups.values()) await storage.saveGroup(group);
   return run;
 }
 function publicRun(run: TestRun): Omit<TestRun, "rawReport"> { const { rawReport: _rawReport, ...safe } = run; return safe; }
@@ -229,17 +233,23 @@ app.put("/api/retry-config", (req, res) => { const projectId = text(req.body.pro
 app.get("/api/test-runs", (_req, res) => res.json([...runs.values()].map(publicRun)));
 app.get("/api/test-runs/:id", (req, res) => { const run = runs.get(req.params.id); run ? res.json(publicRun(run)) : res.status(404).json({ error: "Test run not found" }); });
 app.post("/api/test-runs/preview", upload.single("file"), (req, res) => { if (!req.file) return res.status(400).json({ error: "Attach a JUnit XML file using the 'file' field." }); try { res.json(preview(parseJUnit(req.file.buffer.toString("utf8"), req.body))); } catch (error) { res.status(400).json({ error: error instanceof Error ? error.message : "Invalid JUnit XML" }); } });
-app.post("/api/test-runs", upload.single("file"), (req, res) => { if (!req.file) return res.status(400).json({ error: "Attach a JUnit XML file using the 'file' field." }); try { const run = ingest(parseJUnit(req.file.buffer.toString("utf8"), req.body)); res.status(201).json({ run: publicRun(run), preview: preview(run) }); } catch (error) { res.status(400).json({ error: error instanceof Error ? error.message : "Invalid JUnit XML" }); } });
+app.post("/api/test-runs", upload.single("file"), async (req, res) => { if (!req.file) return res.status(400).json({ error: "Attach a JUnit XML file using the 'file' field." }); try { const run = await ingest(parseJUnit(req.file.buffer.toString("utf8"), req.body)); res.status(201).json({ run: publicRun(run), preview: preview(run) }); } catch (error) { res.status(400).json({ error: error instanceof Error ? error.message : "Invalid JUnit XML" }); } });
 app.get("/api/failure-groups", (_req, res) => res.json([...groups.values()].sort((a, b) => b.occurrences - a.occurrences)));
 app.get("/api/failure-groups/:id", (req, res) => { const group = groups.get(req.params.id); group ? res.json(group) : res.status(404).json({ error: "Failure group not found" }); });
-app.patch("/api/failure-groups/:id", (req, res) => { const group = groups.get(req.params.id); if (!group) return res.status(404).json({ error: "Failure group not found" }); if (req.body.classification) group.classification = req.body.classification; if (typeof req.body.notes === "string") group.notes = req.body.notes; if (req.body.jiraIssue) group.jiraIssue = req.body.jiraIssue; res.json(group); });
-app.post("/api/demo/seed", (req, res) => {
+app.patch("/api/failure-groups/:id", async (req, res) => { const group = groups.get(req.params.id); if (!group) return res.status(404).json({ error: "Failure group not found" }); if (req.body.classification) group.classification = req.body.classification; if (typeof req.body.notes === "string") group.notes = req.body.notes; if (req.body.jiraIssue) group.jiraIssue = req.body.jiraIssue; await storage.saveGroup(group); res.json(group); });
+app.post("/api/demo/seed", async (req, res) => {
   const body = req.body || {};
   const demoXml = `<?xml version="1.0"?><testsuites><testsuite name="Demo checkout"><testcase classname="LoginTest" name="validLogin"/><testcase classname="CheckoutTest" name="submitOrder"><failure message="checkout failed">checkout failed at checkout.ts:1</failure></testcase><testcase classname="ProfileTest" name="loadProfile"><skipped/></testcase><testcase classname="SearchTest" name="searchProducts"/><testcase classname="CartTest" name="addItem"><error message="cart setup error">cart setup error at cart.ts:4</error></testcase><testcase classname="InventoryTest" name="checkStock"/><testcase classname="CheckoutTest" name="submitOrder" parameters="dataRow=1"/><testcase classname="CheckoutTest" name="submitOrder" parameters="dataRow=2"><skipped/></testcase></testsuite></testsuites>`;
-  const run = ingest(parseJUnit(demoXml, { projectId: body.projectId || "default", build: "demo-mixed-report", environment: "demo", externalRunId: `demo-mixed-report-${Date.now()}` }));
+  const run = await ingest(parseJUnit(demoXml, { projectId: body.projectId || "default", build: "demo-mixed-report", environment: "demo", externalRunId: `demo-mixed-report-${Date.now()}` }));
   res.json({ ok: true, scenario: "mixed-report", run: publicRun(run), preview: preview(run) });
 });
-app.listen(Number(process.env.PORT) || 3000, () => console.log("Automation Failure Intelligence running on http://localhost:3000"));
+createStorage().then(async configuredStorage => {
+  storage = configuredStorage;
+  const state = await storage.load();
+  state.runs.forEach(run => runs.set(run.id, run));
+  state.groups.forEach(group => groups.set(group.id, group));
+  app.listen(Number(process.env.PORT) || 3000, () => console.log(`Automation Failure Intelligence running on http://localhost:${Number(process.env.PORT) || 3000}`));
+}).catch(error => { console.error("Storage initialization failed:", error); process.exit(1); });
 
 
 
