@@ -105,4 +105,15 @@ test("each demo scenario contains at least five raw test examples", async () => 
   }
 });
 
+test("skipped-pass demo contains only recovered skips and normal passes", async () => {
+  const response = await fetch(`${baseUrl}/api/demo/seed`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ scenario: "skipped-pass", retryAnalyzerEnabled: true, maxRetries: 1, externalRunId: "clean-skipped-pass" }) });
+  const result = await response.json() as any;
+  assert.equal(result.preview.summary.logicalTests, 5);
+  assert.equal(result.preview.summary.passed, 5);
+  assert.equal(result.preview.summary.skipped, 0);
+  assert.equal(result.run.logicalTests.filter((test: any) => test.finalStatus === "skipped").length, 0);
+  assert.deepEqual(result.run.logicalTests[0].attempts.map((attempt: any) => attempt.rawStatus), ["SKIPPED", "PASSED"]);
+});
+
 test("malformed XML is rejected", async () => { assert.equal((await upload("malformed.xml")).status, 400); });
+
