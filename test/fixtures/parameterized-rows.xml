@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites>
+  <testsuite name="Checkout">
+    <testcase classname="CheckoutTest" name="submitOrder" parameters="dataRow=1" />
+    <testcase classname="CheckoutTest" name="submitOrder" parameters="dataRow=2">
+      <failure message="premium row failed">Premium shipping was unavailable</failure>
+    </testcase>
+    <testcase classname="CheckoutTest" name="submitOrder" parameters="dataRow=3">
+      <skipped message="row excluded by feature flag" />
+    </testcase>
+  </testsuite>
+</testsuites>
+
