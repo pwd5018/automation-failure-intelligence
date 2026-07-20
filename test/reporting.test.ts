@@ -74,3 +74,20 @@ test("malformed XML is rejected", async () => {
   assert.equal(response.status, 400);
 });
 
+test("mock report pack covers the main raw JUnit shapes", async () => {
+  const cases = [
+    ["basic-outcomes.xml", 5, 2, 2, 1],
+    ["repeated-identities.xml", 3, 1, 1, 1],
+    ["parameterized-rows.xml", 3, 1, 1, 1],
+    ["retry-looking.xml", 3, 1, 1, 1]
+  ] as const;
+  for (const [name, total, passed, failed, skipped] of cases) {
+    const result = await (await uploadXml(await readFile(fixture(name), "utf8"))).json() as any;
+    assert.equal(result.preview.summary.logicalTests, total, name);
+    assert.equal(result.preview.summary.passed, passed, name);
+    assert.equal(result.preview.summary.failed, failed, name);
+    assert.equal(result.preview.summary.skipped, skipped, name);
+    assert.equal(result.preview.summary.retryCount, 0, name);
+  }
+});
+
