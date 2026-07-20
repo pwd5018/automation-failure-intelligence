@@ -121,16 +121,13 @@ function signature(message: string, stack: string): string { return crypto.creat
 
 function getConfig(metadata: Record<string, any>): RetryConfig {
   const projectId = text(metadata.projectId || "default");
-  const saved = retryConfigs.get(projectId);
-  const explicitEnabled = metadata.retryAnalyzerEnabled !== undefined;
-  const enabled = explicitEnabled ? bool(metadata.retryAnalyzerEnabled) : saved?.retryAnalyzerEnabled ?? metadata.retryReportingProfile === "SKIPPED_THEN_TERMINAL_IS_RETRY";
   return {
     projectId,
-    retryAnalyzerEnabled: enabled,
-    maxRetries: enabled ? Math.max(1, Math.min(1, Number(metadata.maxRetries ?? saved?.maxRetries ?? 1) || 1)) : 0,
-    skippedSequencePolicy: enabled ? profile(metadata.retryReportingProfile ?? saved?.skippedSequencePolicy ?? "SKIPPED_THEN_TERMINAL_IS_RETRY") : "NORMAL_SKIPPED_SEMANTICS",
-    ordinarySkippedPolicy: skippedPolicy(metadata.skippedLogicalTestPolicy ?? saved?.ordinarySkippedPolicy),
-    version: saved?.version ?? "retry-config-v2"
+    retryAnalyzerEnabled: false,
+    maxRetries: 0,
+    skippedSequencePolicy: "NORMAL_SKIPPED_SEMANTICS",
+    ordinarySkippedPolicy: "COUNT_AS_SKIPPED",
+    version: "raw-results-v1"
   };
 }
 
@@ -188,19 +185,13 @@ function parseJUnit(xml: string, metadata: Record<string, any>): TestRun {
 
   const logicalTests: LogicalTest[] = [];
   const warnings: string[] = [];
-  for (let index = 0; index < rawRecords.length; index += 1) {
-    const current = rawRecords[index];
-    const next = rawRecords[index + 1];
-    const isRetryPair = config.retryAnalyzerEnabled && config.skippedSequencePolicy === "SKIPPED_THEN_TERMINAL_IS_RETRY" && current.rawStatus === "SKIPPED" && next && next.identity === current.identity && (next.rawStatus === "PASSED" || next.rawStatus === "FAILED" || next.rawStatus === "ERROR");
-    const records = isRetryPair ? [current, next] : [current];
-    const logical = makeLogical(records, isRetryPair, config.ordinarySkippedPolicy);
+  for (const current of rawRecords) {
+    const logical = makeLogical([current], false, "COUNT_AS_SKIPPED");
     if (logical) logicalTests.push(logical);
-    if (isRetryPair) index += 1;
   }
   const summary = summarize(logicalTests, rawRecords);
   if (rawRecords.length === 0) warnings.push("No testcase records were found in the report.");
-  const pairedRecordIds = new Set(logicalTests.filter(test => test.attempts.length === 2).flatMap(test => test.attempts.map(attempt => attempt.id)));
-  if (rawRecords.some((record, index) => rawRecords.slice(0, index).some(previous => previous.identity === record.identity && (!pairedRecordIds.has(record.id) || !pairedRecordIds.has(previous.id))))) warnings.push("Repeated test names are counted as separate results unless an exact configured skipped-terminal retry pair is found.");
+  if (rawRecords.some((record, index) => rawRecords.slice(0, index).some(previous => previous.identity === record.identity))) warnings.push("Repeated test identities are shown as separate reported results; no retry inference is applied.");
   const id = `run_${crypto.createHash("sha256").update(`${metadata.externalRunId || ""}|${xml}`).digest("hex").slice(0, 16)}`;
   return { id, projectId: config.projectId, build: text(metadata.build || "local"), environment: text(metadata.environment || "default"), adapter: "junit-generic", adapterVersion: "0.4.0", configurationVersion: config.version, retryAnalyzerEnabled: config.retryAnalyzerEnabled, maxRetries: config.maxRetries, retryReportingProfile: config.skippedSequencePolicy, skippedLogicalTestPolicy: config.ordinarySkippedPolicy, ingestedAt: new Date().toISOString(), rawReport: xml, warnings, rawRecords, logicalTests, summary, resultStatus: summary.failed ? "FAILED" : rawRecords.length ? "PASSED" : "UNKNOWN", processingStatus: warnings.length ? "WARNING" : "COMPLETE" };
 }
@@ -234,7 +225,7 @@ function publicRun(run: TestRun): Omit<TestRun, "rawReport"> { const { rawReport
 function preview(run: TestRun) { return { runId: run.id, projectId: run.projectId, build: run.build, environment: run.environment, retryAnalyzerEnabled: run.retryAnalyzerEnabled, maxRetries: run.maxRetries, retryReportingProfile: run.retryReportingProfile, warnings: run.warnings, summary: run.summary, resultStatus: run.resultStatus, processingStatus: run.processingStatus, logicalTests: run.logicalTests.map(test => ({ name: test.name, suite: test.suite, className: test.className, parameters: test.parameters, finalStatus: test.finalStatus, attempts: test.attempts.map(attempt => ({ attemptNumber: attempt.attemptNumber, rawStatus: attempt.rawStatus, status: attempt.status })), retryCount: test.retryCount, flaky: test.flaky, recoveredAfterRetry: test.recoveredAfterRetry })) }; }
 
 app.get("/api/retry-config", (req, res) => { const projectId = text(req.query.projectId || "default"); res.json(retryConfigs.get(projectId) ?? getConfig({ projectId })); });
-app.put("/api/retry-config", (req, res) => { const projectId = text(req.body.projectId || "default"); const enabled = bool(req.body.retryAnalyzerEnabled); const config: RetryConfig = { projectId, retryAnalyzerEnabled: enabled, maxRetries: enabled ? 1 : 0, skippedSequencePolicy: enabled ? "SKIPPED_THEN_TERMINAL_IS_RETRY" : "NORMAL_SKIPPED_SEMANTICS", ordinarySkippedPolicy: skippedPolicy(req.body.ordinarySkippedPolicy), version: `retry-config-${Date.now()}` }; retryConfigs.set(projectId, config); res.json(config); });
+app.put("/api/retry-config", (req, res) => { const projectId = text(req.body.projectId || "default"); const config: RetryConfig = { projectId, retryAnalyzerEnabled: false, maxRetries: 0, skippedSequencePolicy: "NORMAL_SKIPPED_SEMANTICS", ordinarySkippedPolicy: "COUNT_AS_SKIPPED", version: "raw-results-v1" }; retryConfigs.set(projectId, config); res.json(config); });
 app.get("/api/test-runs", (_req, res) => res.json([...runs.values()].map(publicRun)));
 app.get("/api/test-runs/:id", (req, res) => { const run = runs.get(req.params.id); run ? res.json(publicRun(run)) : res.status(404).json({ error: "Test run not found" }); });
 app.post("/api/test-runs/preview", upload.single("file"), (req, res) => { if (!req.file) return res.status(400).json({ error: "Attach a JUnit XML file using the 'file' field." }); try { res.json(preview(parseJUnit(req.file.buffer.toString("utf8"), req.body))); } catch (error) { res.status(400).json({ error: error instanceof Error ? error.message : "Invalid JUnit XML" }); } });
@@ -244,17 +235,11 @@ app.get("/api/failure-groups/:id", (req, res) => { const group = groups.get(req.
 app.patch("/api/failure-groups/:id", (req, res) => { const group = groups.get(req.params.id); if (!group) return res.status(404).json({ error: "Failure group not found" }); if (req.body.classification) group.classification = req.body.classification; if (typeof req.body.notes === "string") group.notes = req.body.notes; if (req.body.jiraIssue) group.jiraIssue = req.body.jiraIssue; res.json(group); });
 app.post("/api/demo/seed", (req, res) => {
   const body = req.body || {};
-  const scenario = text(body.scenario || "skipped-pass");
-  const examples: Record<string, string> = {
-    "skipped-pass": `<?xml version="1.0"?><testsuites><testsuite name="Checkout"><testcase classname="CheckoutTest" name="submitOrder"><skipped/></testcase><testcase classname="CheckoutTest" name="submitOrder"/><testcase classname="SearchTest" name="searchProducts"><skipped/></testcase><testcase classname="SearchTest" name="searchProducts"/><testcase classname="LoginTest" name="validLogin"/><testcase classname="CartTest" name="addItem"><skipped/></testcase><testcase classname="CartTest" name="addItem"/><testcase classname="ProfileTest" name="loadProfile"/></testsuite></testsuites>`,
-    "skipped-failed": `<?xml version="1.0"?><testsuites><testsuite name="Checkout"><testcase classname="CheckoutTest" name="submitOrder"><skipped/></testcase><testcase classname="CheckoutTest" name="submitOrder"><failure message="checkout failed">checkout failed at checkout.ts:1</failure></testcase><testcase classname="SearchTest" name="searchProducts"><skipped/></testcase><testcase classname="SearchTest" name="searchProducts"><failure message="search failed">search failed at search.ts:9</failure></testcase><testcase classname="LoginTest" name="validLogin"/><testcase classname="CartTest" name="addItem"/><testcase classname="ProfileTest" name="loadProfile"/></testsuite></testsuites>`,
-    "ambiguous-three-records": `<?xml version="1.0"?><testsuites><testsuite name="Checkout"><testcase classname="CheckoutTest" name="submitOrder"><skipped/></testcase><testcase classname="CheckoutTest" name="submitOrder"><failure message="first checkout failed">first checkout failed</failure></testcase><testcase classname="CheckoutTest" name="submitOrder"/><testcase classname="SearchTest" name="searchProducts"/><testcase classname="LoginTest" name="validLogin"/><testcase classname="CartTest" name="addItem"/><testcase classname="ProfileTest" name="loadProfile"/></testsuite></testsuites>`,
-    "parameterized": `<?xml version="1.0"?><testsuites><testsuite name="Checkout"><testcase classname="CheckoutTest" name="submitOrder" parameters="dataRow=1"><skipped/></testcase><testcase classname="CheckoutTest" name="submitOrder" parameters="dataRow=1"/><testcase classname="CheckoutTest" name="submitOrder" parameters="dataRow=2"><skipped/></testcase><testcase classname="CheckoutTest" name="submitOrder" parameters="dataRow=2"><failure message="premium row failed">premium row failed</failure></testcase><testcase classname="CheckoutTest" name="submitOrder" parameters="dataRow=3"/><testcase classname="CheckoutTest" name="submitOrder" parameters="dataRow=4"/><testcase classname="CheckoutTest" name="submitOrder" parameters="dataRow=5"/></testsuite></testsuites>`
-  };
-  const run = ingest(parseJUnit(examples[scenario] || examples["skipped-pass"], { ...body, build: `demo-${scenario}`, environment: "demo", externalRunId: `demo-${scenario}-${Date.now()}` }));
-  res.json({ ok: true, scenario, run: publicRun(run), preview: preview(run) });
+  const demoXml = `<?xml version="1.0"?><testsuites><testsuite name="Demo checkout"><testcase classname="LoginTest" name="validLogin"/><testcase classname="CheckoutTest" name="submitOrder"><failure message="checkout failed">checkout failed at checkout.ts:1</failure></testcase><testcase classname="ProfileTest" name="loadProfile"><skipped/></testcase><testcase classname="SearchTest" name="searchProducts"/><testcase classname="CartTest" name="addItem"><error message="cart setup error">cart setup error at cart.ts:4</error></testcase><testcase classname="InventoryTest" name="checkStock"/><testcase classname="CheckoutTest" name="submitOrder" parameters="dataRow=1"/><testcase classname="CheckoutTest" name="submitOrder" parameters="dataRow=2"><skipped/></testcase></testsuite></testsuites>`;
+  const run = ingest(parseJUnit(demoXml, { projectId: body.projectId || "default", build: "demo-mixed-report", environment: "demo", externalRunId: `demo-mixed-report-${Date.now()}` }));
+  res.json({ ok: true, scenario: "mixed-report", run: publicRun(run), preview: preview(run) });
 });
-
 app.listen(Number(process.env.PORT) || 3000, () => console.log("Automation Failure Intelligence running on http://localhost:3000"));
+
 
 
