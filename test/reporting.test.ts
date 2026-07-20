@@ -105,6 +105,14 @@ test("each demo scenario contains at least five raw test examples", async () => 
   }
 });
 
+test("demo scenarios do not add unexplained standalone skipped tests", async () => {
+  for (const scenario of ["skipped-pass", "skipped-failed", "ambiguous-three-records", "parameterized"]) {
+    const response = await fetch(`${baseUrl}/api/demo/seed`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ scenario, retryAnalyzerEnabled: true, maxRetries: 1, externalRunId: `no-orphan-skip-${scenario}` }) });
+    const result = await response.json() as any;
+    assert.equal(result.preview.summary.skipped, 0, `${scenario} should not contain an orphan skipped result`);
+  }
+});
+
 test("skipped-pass demo contains only recovered skips and normal passes", async () => {
   const response = await fetch(`${baseUrl}/api/demo/seed`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ scenario: "skipped-pass", retryAnalyzerEnabled: true, maxRetries: 1, externalRunId: "clean-skipped-pass" }) });
   const result = await response.json() as any;
