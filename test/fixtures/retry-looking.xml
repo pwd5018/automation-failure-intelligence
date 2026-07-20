@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites>
+  <testsuite name="Checkout">
+    <testcase classname="CheckoutTest" name="submitOrder">
+      <skipped message="framework retry handoff" />
+    </testcase>
+    <testcase classname="CheckoutTest" name="submitOrder">
+      <failure message="checkout failed on retry">Service returned 500</failure>
+    </testcase>
+    <testcase classname="CheckoutTest" name="submitOrder" />
+  </testsuite>
+</testsuites>
+
