@@ -27,6 +27,8 @@ The current model is intentionally simple and truthful:
 
 The dashboard has one mixed demo report. It includes passed, failed, error, skipped, repeated-name, and parameterized testcase records. The dashboard loads it automatically and the `Load demo report` button reloads the same report.
 
+The test suite also includes mock reports for basic outcomes, repeated identities, parameterized rows, and retry-looking sequences. These fixtures are intentionally interpreted as raw results without retry inference.
+
 ## API
 
 - `POST /api/test-runs/preview` - inspect a JUnit XML report without storing it.
