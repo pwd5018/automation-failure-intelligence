@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites>
+  <testsuite name="Checkout" tests="5">
+    <testcase classname="LoginTest" name="validLogin" time="0.21" />
+    <testcase classname="CheckoutTest" name="submitOrder" time="0.44">
+      <failure message="checkout total mismatch">Expected 100 but received 110</failure>
+    </testcase>
+    <testcase classname="ProfileTest" name="loadProfile" time="0.00">
+      <skipped message="profile service disabled" />
+    </testcase>
+    <testcase classname="CartTest" name="addItem" time="0.12">
+      <error message="browser setup failed">WebDriver could not start</error>
+    </testcase>
+    <testcase classname="SearchTest" name="searchProducts" time="0.18" />
+  </testsuite>
+</testsuites>
+
