@@ -29,6 +29,12 @@ The dashboard has one mixed demo report. It includes passed, failed, error, skip
 
 The test suite also includes mock reports for basic outcomes, repeated identities, parameterized rows, and retry-looking sequences. These fixtures are intentionally interpreted as raw results without retry inference.
 
+## Persistence
+
+The app uses PostgreSQL when `DATABASE_URL` is configured. On startup it creates the `afi_runs` and `afi_failure_groups` tables and reloads stored data. Without `DATABASE_URL`, local development uses in-memory storage.
+
+For Vercel, provision a PostgreSQL database through the project integrations, add its connection string as the `DATABASE_URL` environment variable for Preview and Production, then redeploy. Do not commit the connection string to the repository.
+
 ## API
 
 - `POST /api/test-runs/preview` - inspect a JUnit XML report without storing it.
