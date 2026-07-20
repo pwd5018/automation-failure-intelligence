@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites>
+  <testsuite name="Checkout">
+    <testcase classname="CheckoutTest" name="submitOrder">
+      <skipped message="not applicable" />
+    </testcase>
+    <testcase classname="CheckoutTest" name="submitOrder" />
+    <testcase classname="CheckoutTest" name="submitOrder">
+      <failure message="second invocation failed">Payment declined</failure>
+    </testcase>
+  </testsuite>
+</testsuites>
+
