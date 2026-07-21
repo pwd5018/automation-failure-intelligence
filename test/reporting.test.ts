@@ -88,6 +88,7 @@ test("storage supports the Vercel Postgres variable names", async () => {
   assert.match(storageSource, /POSTGRES_URL/);
   assert.match(storageSource, /POSTGRES_PRISMA_URL/);
   assert.match(storageSource, /POSTGRES_URL_NON_POOLING/);
+  assert.match(storageSource, /rejectUnauthorized: false/);
 });
 
 test("mock report pack covers the main raw JUnit shapes", async () => {
