@@ -31,9 +31,9 @@ The test suite also includes mock reports for basic outcomes, repeated identitie
 
 ## Persistence
 
-The app uses PostgreSQL when `DATABASE_URL` is configured. On startup it creates the `afi_runs` and `afi_failure_groups` tables and reloads stored data. Without `DATABASE_URL`, local development uses in-memory storage.
+The app uses PostgreSQL when `DATABASE_URL`, `POSTGRES_URL`, `POSTGRES_PRISMA_URL`, or `POSTGRES_URL_NON_POOLING` is configured. On startup it creates the `afi_runs` and `afi_failure_groups` tables and reloads stored data. Without one of those variables, local development uses in-memory storage.
 
-For Vercel, provision a PostgreSQL database through the project integrations, add its connection string as the `DATABASE_URL` environment variable for Preview and Production, then redeploy. Do not commit the connection string to the repository.
+For Vercel, the Supabase integration can provide `POSTGRES_URL` and related variables automatically. After adding or changing the integration, redeploy. Do not commit the connection string to the repository.
 
 ## API
 
