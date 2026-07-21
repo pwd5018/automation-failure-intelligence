@@ -18,6 +18,18 @@ function memoryStorage(variable?: string, error?: string): Storage {
   return { persistent: false, variable, error, load: async () => ({ runs: [], groups: [] }), saveRun: async () => undefined, saveGroup: async () => undefined };
 }
 
+function connectionStringForNode(value: string): string {
+  try {
+    const url = new URL(value);
+    url.searchParams.delete("sslmode");
+    url.searchParams.delete("sslcert");
+    url.searchParams.delete("sslrootcert");
+    return url.toString();
+  } catch {
+    return value.replace(/([?&])sslmode=[^&]*&?/i, "$1").replace(/[?&]$/, "");
+  }
+}
+
 export async function createStorage(): Promise<Storage> {
   const candidates = ["DATABASE_URL", "POSTGRES_URL", "POSTGRES_PRISMA_URL", "POSTGRES_URL_NON_POOLING"];
   const variable = candidates.find(name => Boolean(process.env[name]));
@@ -27,7 +39,7 @@ export async function createStorage(): Promise<Storage> {
     return memoryStorage();
   }
 
-  const pool = new Pool({ connectionString, max: 2, connectionTimeoutMillis: 3000, ssl: process.env.DATABASE_SSL === "false" ? undefined : { rejectUnauthorized: false } });
+  const pool = new Pool({ connectionString: connectionStringForNode(connectionString), max: 2, connectionTimeoutMillis: 5000, ssl: process.env.DATABASE_SSL === "false" ? undefined : { rejectUnauthorized: false } });
   try {
     await pool.query(`
       CREATE TABLE IF NOT EXISTS afi_runs (
