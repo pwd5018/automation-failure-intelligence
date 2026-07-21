@@ -16,6 +16,14 @@ async function uploadXml(xml: string, fields: Record<string, string> = {}, endpo
 before(async () => { server = spawn(process.execPath, [path.join(process.cwd(), "dist", "src", "server.js")], { cwd: process.cwd(), env: { ...process.env, PORT: String(port) }, stdio: "pipe" }); await waitForServer(); });
 after(async () => { server.kill(); await once(server, "exit").catch(() => undefined); });
 
+test("health endpoint reports active storage mode", async () => {
+  const response = await fetch(`${baseUrl}/api/health`);
+  const result = await response.json() as any;
+  assert.equal(response.status, 200);
+  assert.equal(result.ok, true);
+  assert.equal(result.storage, "memory");
+});
+
 test("raw results are counted exactly as reported", async () => {
   const xml = `<?xml version="1.0"?><testsuites><testsuite name="Checkout"><testcase classname="LoginTest" name="validLogin"/><testcase classname="CheckoutTest" name="submitOrder"><failure message="checkout failed">checkout failed</failure></testcase><testcase classname="ProfileTest" name="loadProfile"><skipped/></testcase><testcase classname="CheckoutTest" name="submitOrder"/></testsuite></testsuites>`;
   const result = await (await uploadXml(xml, { retryAnalyzerEnabled: "true" })).json() as any;
