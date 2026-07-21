@@ -249,7 +249,7 @@ createStorage().then(async configuredStorage => {
   state.runs.forEach(run => runs.set(run.id, run));
   state.groups.forEach(group => groups.set(group.id, group));
   app.listen(Number(process.env.PORT) || 3000, () => console.log(`Automation Failure Intelligence running on http://localhost:${Number(process.env.PORT) || 3000}`));
-}).catch(error => { console.error("Storage initialization failed:", error); process.exit(1); });
+}).catch(error => { console.error("Storage startup failed; using in-memory storage:", error); storage = { persistent: false, load: async () => ({ runs: [], groups: [] }), saveRun: async () => undefined, saveGroup: async () => undefined }; app.listen(Number(process.env.PORT) || 3000, () => console.log("Automation Failure Intelligence running without persistent storage.")); });
 
 
 
