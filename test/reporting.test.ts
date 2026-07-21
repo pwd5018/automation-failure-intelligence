@@ -22,6 +22,7 @@ test("health endpoint reports active storage mode", async () => {
   assert.equal(response.status, 200);
   assert.equal(result.ok, true);
   assert.equal(result.storage, "memory");
+  assert.equal(result.storageVariable, null);
 });
 
 test("raw results are counted exactly as reported", async () => {
