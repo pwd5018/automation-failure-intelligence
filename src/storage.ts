@@ -7,17 +7,21 @@ type StoredState = {
 
 export type Storage = {
   persistent: boolean;
+  variable?: string;
+  error?: string;
   load: () => Promise<StoredState>;
   saveRun: (run: any) => Promise<void>;
   saveGroup: (group: any) => Promise<void>;
 };
 
-function memoryStorage(): Storage {
-  return { persistent: false, load: async () => ({ runs: [], groups: [] }), saveRun: async () => undefined, saveGroup: async () => undefined };
+function memoryStorage(variable?: string, error?: string): Storage {
+  return { persistent: false, variable, error, load: async () => ({ runs: [], groups: [] }), saveRun: async () => undefined, saveGroup: async () => undefined };
 }
 
 export async function createStorage(): Promise<Storage> {
-  const connectionString = process.env.DATABASE_URL || process.env.POSTGRES_URL || process.env.POSTGRES_PRISMA_URL || process.env.POSTGRES_URL_NON_POOLING;
+  const candidates = ["DATABASE_URL", "POSTGRES_URL", "POSTGRES_PRISMA_URL", "POSTGRES_URL_NON_POOLING"];
+  const variable = candidates.find(name => Boolean(process.env[name]));
+  const connectionString = variable ? process.env[variable] : undefined;
   if (!connectionString) {
     console.log("No PostgreSQL connection variable is set; using in-memory storage.");
     return memoryStorage();
@@ -38,13 +42,15 @@ export async function createStorage(): Promise<Storage> {
       );
     `);
   } catch (error) {
-    console.error("PostgreSQL initialization failed; using in-memory storage:", error);
+    const message = error instanceof Error ? error.message : "Unknown PostgreSQL initialization error";
+    console.error(`PostgreSQL initialization failed using ${variable}; using in-memory storage:`, error);
     await pool.end().catch(() => undefined);
-    return memoryStorage();
+    return memoryStorage(variable, message);
   }
   console.log("Using PostgreSQL storage.");
   return {
     persistent: true,
+    variable,
     load: async () => {
       const [runRows, groupRows] = await Promise.all([
         pool.query("SELECT payload FROM afi_runs ORDER BY updated_at DESC"),
