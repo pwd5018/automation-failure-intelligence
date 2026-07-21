@@ -74,6 +74,13 @@ test("malformed XML is rejected", async () => {
   assert.equal(response.status, 400);
 });
 
+test("storage supports the Vercel Postgres variable names", async () => {
+  const storageSource = await readFile(path.join(process.cwd(), "src", "storage.ts"), "utf8");
+  assert.match(storageSource, /POSTGRES_URL/);
+  assert.match(storageSource, /POSTGRES_PRISMA_URL/);
+  assert.match(storageSource, /POSTGRES_URL_NON_POOLING/);
+});
+
 test("mock report pack covers the main raw JUnit shapes", async () => {
   const cases = [
     ["basic-outcomes.xml", 5, 2, 2, 1],
