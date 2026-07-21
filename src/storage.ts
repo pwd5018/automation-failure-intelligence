@@ -12,26 +12,36 @@ export type Storage = {
   saveGroup: (group: any) => Promise<void>;
 };
 
+function memoryStorage(): Storage {
+  return { persistent: false, load: async () => ({ runs: [], groups: [] }), saveRun: async () => undefined, saveGroup: async () => undefined };
+}
+
 export async function createStorage(): Promise<Storage> {
   const connectionString = process.env.DATABASE_URL || process.env.POSTGRES_URL || process.env.POSTGRES_PRISMA_URL || process.env.POSTGRES_URL_NON_POOLING;
   if (!connectionString) {
     console.log("No PostgreSQL connection variable is set; using in-memory storage.");
-    return { persistent: false, load: async () => ({ runs: [], groups: [] }), saveRun: async () => undefined, saveGroup: async () => undefined };
+    return memoryStorage();
   }
 
   const pool = new Pool({ connectionString, max: 2, connectionTimeoutMillis: 3000, ssl: process.env.DATABASE_SSL === "false" ? undefined : { rejectUnauthorized: false } });
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS afi_runs (
-      id TEXT PRIMARY KEY,
-      payload JSONB NOT NULL,
-      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    );
-    CREATE TABLE IF NOT EXISTS afi_failure_groups (
-      id TEXT PRIMARY KEY,
-      payload JSONB NOT NULL,
-      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    );
-  `);
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS afi_runs (
+        id TEXT PRIMARY KEY,
+        payload JSONB NOT NULL,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+      CREATE TABLE IF NOT EXISTS afi_failure_groups (
+        id TEXT PRIMARY KEY,
+        payload JSONB NOT NULL,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+    `);
+  } catch (error) {
+    console.error("PostgreSQL initialization failed; using in-memory storage:", error);
+    await pool.end().catch(() => undefined);
+    return memoryStorage();
+  }
   console.log("Using PostgreSQL storage.");
   return {
     persistent: true,
@@ -42,8 +52,8 @@ export async function createStorage(): Promise<Storage> {
       ]);
       return { runs: runRows.rows.map(row => row.payload), groups: groupRows.rows.map(row => row.payload) };
     },
-    saveRun: async run => { await pool.query("INSERT INTO afi_runs (id, payload, updated_at) VALUES ($1, $2, NOW()) ON CONFLICT (id) DO UPDATE SET payload = EXCLUDED.payload, updated_at = NOW()", [run.id, run]); },
-    saveGroup: async group => { await pool.query("INSERT INTO afi_failure_groups (id, payload, updated_at) VALUES ($1, $2, NOW()) ON CONFLICT (id) DO UPDATE SET payload = EXCLUDED.payload, updated_at = NOW()", [group.id, group]); }
+    saveRun: async run => { try { await pool.query("INSERT INTO afi_runs (id, payload, updated_at) VALUES ($1, $2, NOW()) ON CONFLICT (id) DO UPDATE SET payload = EXCLUDED.payload, updated_at = NOW()", [run.id, run]); } catch (error) { console.error("Could not persist run:", error); } },
+    saveGroup: async group => { try { await pool.query("INSERT INTO afi_failure_groups (id, payload, updated_at) VALUES ($1, $2, NOW()) ON CONFLICT (id) DO UPDATE SET payload = EXCLUDED.payload, updated_at = NOW()", [group.id, group]); } catch (error) { console.error("Could not persist failure group:", error); } }
   };
 }
 
