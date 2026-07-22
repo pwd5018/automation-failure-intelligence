@@ -12,10 +12,12 @@ export type Storage = {
   load: () => Promise<StoredState>;
   saveRun: (run: any) => Promise<void>;
   saveGroup: (group: any) => Promise<void>;
+  deleteRun: (id: string) => Promise<void>;
+  deleteGroup: (id: string) => Promise<void>;
 };
 
 function memoryStorage(variable?: string, error?: string): Storage {
-  return { persistent: false, variable, error, load: async () => ({ runs: [], groups: [] }), saveRun: async () => undefined, saveGroup: async () => undefined };
+  return { persistent: false, variable, error, load: async () => ({ runs: [], groups: [] }), saveRun: async () => undefined, saveGroup: async () => undefined, deleteRun: async () => undefined, deleteGroup: async () => undefined };
 }
 
 function connectionStringForNode(value: string): string {
@@ -71,7 +73,9 @@ export async function createStorage(): Promise<Storage> {
       return { runs: runRows.rows.map(row => row.payload), groups: groupRows.rows.map(row => row.payload) };
     },
     saveRun: async run => { try { await pool.query("INSERT INTO afi_runs (id, payload, updated_at) VALUES ($1, $2, NOW()) ON CONFLICT (id) DO UPDATE SET payload = EXCLUDED.payload, updated_at = NOW()", [run.id, run]); } catch (error) { console.error("Could not persist run:", error); } },
-    saveGroup: async group => { try { await pool.query("INSERT INTO afi_failure_groups (id, payload, updated_at) VALUES ($1, $2, NOW()) ON CONFLICT (id) DO UPDATE SET payload = EXCLUDED.payload, updated_at = NOW()", [group.id, group]); } catch (error) { console.error("Could not persist failure group:", error); } }
+    saveGroup: async group => { try { await pool.query("INSERT INTO afi_failure_groups (id, payload, updated_at) VALUES ($1, $2, NOW()) ON CONFLICT (id) DO UPDATE SET payload = EXCLUDED.payload, updated_at = NOW()", [group.id, group]); } catch (error) { console.error("Could not persist failure group:", error); } },
+    deleteRun: async id => { try { await pool.query("DELETE FROM afi_runs WHERE id = $1", [id]); } catch (error) { console.error("Could not delete demo run:", error); } },
+    deleteGroup: async id => { try { await pool.query("DELETE FROM afi_failure_groups WHERE id = $1", [id]); } catch (error) { console.error("Could not delete demo failure group:", error); } }
   };
 }
 
