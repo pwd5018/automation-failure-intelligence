@@ -278,7 +278,8 @@ app.get("/api/failure-groups", (req, res) => {
       selectedRunTests: [...new Set(evidence.map(item => item.testName))],
       selectedRunRuns: [runId]
     };
-  }).sort((a, b) => (((b as any).selectedRunOccurrences ?? b.occurrences) - ((a as any).selectedRunOccurrences ?? a.occurrences)));
+  }).filter(group => !runId || (group as any).selectedRunOccurrences >= 2)
+    .sort((a, b) => (((b as any).selectedRunOccurrences ?? b.occurrences) - ((a as any).selectedRunOccurrences ?? a.occurrences)));
   res.json(result);
 });
 app.get("/api/failure-groups/:id", (req, res) => { const group = [...groups.values()].find(item => item.id === req.params.id); group ? res.json(group) : res.status(404).json({ error: "Failure group not found" }); });
