@@ -92,6 +92,22 @@ test("failure groups retain exact run and test evidence", async () => {
   assert.deepEqual(group.outcomes, ["FAILED"]);
 });
 
+test("failure group annotations validate, save, and clear Jira links", async () => {
+  const groups = await (await fetch(`${baseUrl}/api/failure-groups?q=unique evidence failure`)).json() as any[];
+  const group = groups[0];
+  assert.ok(group);
+  const saved = await fetch(`${baseUrl}/api/failure-groups/${group.id}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ classification: "product-defect", notes: "Needs investigation", jiraIssue: { key: "QA-123" } }) });
+  const savedGroup = await saved.json() as any;
+  assert.equal(saved.status, 200);
+  assert.equal(savedGroup.classification, "product-defect");
+  assert.equal(savedGroup.notes, "Needs investigation");
+  assert.equal(savedGroup.jiraIssue.key, "QA-123");
+  const cleared = await fetch(`${baseUrl}/api/failure-groups/${group.id}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ jiraIssue: null }) });
+  assert.equal(cleared.status, 200);
+  assert.equal((await cleared.json() as any).jiraIssue, undefined);
+  assert.equal((await fetch(`${baseUrl}/api/failure-groups/${group.id}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ classification: "not-valid" }) })).status, 400);
+});
+
 test("duplicate uploads remain idempotent", async () => {
   const xml = await readFile(fixture("parameterized.xml"), "utf8");
   const first = await uploadXml(xml, { build: "duplicate-test" });
