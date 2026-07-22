@@ -39,20 +39,25 @@ test("raw results are counted exactly as reported", async () => {
   assert.match(result.run.warnings[0], /Repeated test identities/);
 });
 
-test("mixed demo report contains only unique happy-path test names", async () => {
+test("demo pack provides distinct reusable real-world runs", async () => {
   const response = await fetch(`${baseUrl}/api/demo/seed`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({}) });
   const result = await response.json() as any;
   assert.equal(response.status, 200);
-  assert.equal(result.scenario, "mixed-report");
-  assert.equal(result.preview.summary.logicalTests, 6);
-  assert.equal(result.preview.summary.passed, 3);
+  assert.equal(result.scenario, "demo-pack");
+  assert.equal(result.runs.length, 4);
+  assert.equal(result.preview.summary.logicalTests, 8);
+  assert.equal(result.preview.summary.passed, 5);
   assert.equal(result.preview.summary.failed, 1);
   assert.equal(result.preview.summary.errors, 1);
   assert.equal(result.preview.summary.skipped, 1);
   assert.equal(result.preview.summary.retryCount, 0);
-  assert.equal(new Set(result.run.logicalTests.map((test: any) => test.name)).size, 6);
+  assert.equal(new Set(result.run.logicalTests.map((test: any) => test.name)).size, 8);
   const groups = await (await fetch(`${baseUrl}/api/failure-groups?runId=${result.run.id}`)).json() as any[];
   assert.equal(groups.length, 0);
+  const sharedRun = result.runs.find((run: any) => run.build === "demo-shared-failure");
+  const sharedGroups = await (await fetch(`${baseUrl}/api/failure-groups?runId=${sharedRun.id}`)).json() as any[];
+  assert.equal(sharedGroups.length, 1);
+  assert.equal(sharedGroups[0].selectedRunOccurrences, 2);
   const searchedGroups = await (await fetch(`${baseUrl}/api/failure-groups?runId=${result.run.id}&q=checkout`)).json() as any[];
   assert.equal(searchedGroups.length, 0);
 });
