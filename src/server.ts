@@ -53,6 +53,7 @@ type Summary = {
   physicalAttempts: number;
   passed: number;
   failed: number;
+  errors: number;
   skipped: number;
   flaky: number;
   retryCount: number;
@@ -87,6 +88,9 @@ type FailureGroup = {
   message: string;
   stackTrace: string;
   tests: string[];
+  testIds: string[];
+  runs: string[];
+  outcomes: Array<"FAILED" | "ERROR">;
   suites: string[];
   environments: string[];
   builds: string[];
@@ -159,7 +163,8 @@ function summarize(logicalTests: LogicalTest[], rawRecords: RawRecord[]): Summar
     logicalTests: logicalTests.length,
     physicalAttempts: rawRecords.length,
     passed: logicalTests.filter(test => test.finalStatus === "passed").length,
-    failed: logicalTests.filter(test => test.finalStatus === "failed" || test.finalStatus === "error").length,
+    failed: logicalTests.filter(test => test.finalStatus === "failed").length,
+    errors: logicalTests.filter(test => test.finalStatus === "error").length,
     skipped: logicalTests.filter(test => test.finalStatus === "skipped").length,
     flaky: logicalTests.filter(test => test.flaky).length,
     retryCount: logicalTests.reduce((count, test) => count + test.retryCount, 0),
@@ -195,7 +200,7 @@ function parseJUnit(xml: string, metadata: Record<string, any>): TestRun {
   if (rawRecords.length === 0) warnings.push("No testcase records were found in the report.");
   if (rawRecords.some((record, index) => rawRecords.slice(0, index).some(previous => previous.identity === record.identity))) warnings.push("Repeated test identities are shown as separate reported results; no retry inference is applied.");
   const id = `run_${crypto.createHash("sha256").update(`${metadata.externalRunId || ""}|${xml}`).digest("hex").slice(0, 16)}`;
-  return { id, projectId: config.projectId, build: text(metadata.build || "local"), environment: text(metadata.environment || "default"), adapter: "junit-generic", adapterVersion: "0.4.0", configurationVersion: config.version, retryAnalyzerEnabled: config.retryAnalyzerEnabled, maxRetries: config.maxRetries, retryReportingProfile: config.skippedSequencePolicy, skippedLogicalTestPolicy: config.ordinarySkippedPolicy, ingestedAt: new Date().toISOString(), rawReport: xml, warnings, rawRecords, logicalTests, summary, resultStatus: summary.failed ? "FAILED" : rawRecords.length ? "PASSED" : "UNKNOWN", processingStatus: warnings.length ? "WARNING" : "COMPLETE" };
+  return { id, projectId: config.projectId, build: text(metadata.build || "local"), environment: text(metadata.environment || "default"), adapter: "junit-generic", adapterVersion: "0.4.0", configurationVersion: config.version, retryAnalyzerEnabled: config.retryAnalyzerEnabled, maxRetries: config.maxRetries, retryReportingProfile: config.skippedSequencePolicy, skippedLogicalTestPolicy: config.ordinarySkippedPolicy, ingestedAt: new Date().toISOString(), rawReport: xml, warnings, rawRecords, logicalTests, summary, resultStatus: summary.failed || summary.errors ? "FAILED" : rawRecords.length ? "PASSED" : "UNKNOWN", processingStatus: warnings.length ? "WARNING" : "COMPLETE" };
 }
 
 function addFailureGroup(run: TestRun, test: LogicalTest): void {
@@ -205,11 +210,14 @@ function addFailureGroup(run: TestRun, test: LogicalTest): void {
   const sig = signature(message, stack);
   const existing = groups.get(sig);
   if (!existing) {
-    groups.set(sig, { id: `fg_${sig}`, signature: sig, summary: message.slice(0, 120), message, stackTrace: stack, tests: [test.name], suites: [test.suite], environments: [run.environment], builds: [run.build], occurrences: 1, firstSeen: attempt.timestamp, lastSeen: attempt.timestamp, classification: "unknown", notes: "", recoveredAttempts: 0 });
+    groups.set(sig, { id: `fg_${sig}`, signature: sig, summary: message.slice(0, 120), message, stackTrace: stack, tests: [test.name], testIds: [test.id], runs: [run.id], outcomes: [test.finalStatus === "error" ? "ERROR" : "FAILED"], suites: [test.suite], environments: [run.environment], builds: [run.build], occurrences: 1, firstSeen: attempt.timestamp, lastSeen: attempt.timestamp, classification: "unknown", notes: "", recoveredAttempts: 0 });
   } else {
     existing.occurrences += 1;
     existing.lastSeen = attempt.timestamp;
     existing.tests = [...new Set([...existing.tests, test.name])];
+    existing.testIds = [...new Set([...(existing.testIds || []), test.id])];
+    existing.runs = [...new Set([...(existing.runs || []), run.id])];
+    existing.outcomes = [...new Set<"FAILED" | "ERROR">([...(existing.outcomes || []), test.finalStatus === "error" ? "ERROR" : "FAILED"])];
     existing.suites = [...new Set([...existing.suites, test.suite])];
     existing.environments = [...new Set([...existing.environments, run.environment])];
     existing.builds = [...new Set([...existing.builds, run.build])];
@@ -231,7 +239,18 @@ function preview(run: TestRun) { return { runId: run.id, projectId: run.projectI
 app.get("/api/retry-config", (req, res) => { const projectId = text(req.query.projectId || "default"); res.json(retryConfigs.get(projectId) ?? getConfig({ projectId })); });
 app.get("/api/health", (_req, res) => res.json({ ok: true, storage: storage.persistent ? "postgres" : "memory", storageVariable: storage.variable || null, storageError: storage.error || null }));
 app.put("/api/retry-config", (req, res) => { const projectId = text(req.body.projectId || "default"); const config: RetryConfig = { projectId, retryAnalyzerEnabled: false, maxRetries: 0, skippedSequencePolicy: "NORMAL_SKIPPED_SEMANTICS", ordinarySkippedPolicy: "COUNT_AS_SKIPPED", version: "raw-results-v1" }; retryConfigs.set(projectId, config); res.json(config); });
-app.get("/api/test-runs", (_req, res) => res.json([...runs.values()].map(publicRun)));
+app.get("/api/test-runs", (req, res) => {
+  const requestedStatus = text(req.query.status).trim().toUpperCase();
+  const allowedStatuses = new Set(["PASSED", "FAILED", "ERROR", "SKIPPED"]);
+  if (requestedStatus && !allowedStatuses.has(requestedStatus)) return res.status(400).json({ error: "status must be PASSED, FAILED, ERROR, or SKIPPED." });
+  const query = normalize(text(req.query.q));
+  const result = [...runs.values()].filter(run => {
+    const statusMatch = !requestedStatus || run.logicalTests.some(test => test.finalStatus.toUpperCase() === requestedStatus);
+    const searchText = normalize([run.build, run.environment, ...run.logicalTests.flatMap(test => [test.name, test.className, test.suite, test.parameters || ""])].join(" "));
+    return statusMatch && (!query || searchText.includes(query));
+  }).map(publicRun);
+  res.json(result);
+});
 app.get("/api/test-runs/:id", (req, res) => { const run = runs.get(req.params.id); run ? res.json(publicRun(run)) : res.status(404).json({ error: "Test run not found" }); });
 app.post("/api/test-runs/preview", upload.single("file"), (req, res) => { if (!req.file) return res.status(400).json({ error: "Attach a JUnit XML file using the 'file' field." }); try { res.json(preview(parseJUnit(req.file.buffer.toString("utf8"), req.body))); } catch (error) { res.status(400).json({ error: error instanceof Error ? error.message : "Invalid JUnit XML" }); } });
 app.post("/api/test-runs", upload.single("file"), async (req, res) => { if (!req.file) return res.status(400).json({ error: "Attach a JUnit XML file using the 'file' field." }); try { const run = await ingest(parseJUnit(req.file.buffer.toString("utf8"), req.body)); res.status(201).json({ run: publicRun(run), preview: preview(run) }); } catch (error) { res.status(400).json({ error: error instanceof Error ? error.message : "Invalid JUnit XML" }); } });
