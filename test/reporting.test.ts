@@ -51,6 +51,12 @@ test("mixed demo report contains only unique happy-path test names", async () =>
   assert.equal(result.preview.summary.skipped, 1);
   assert.equal(result.preview.summary.retryCount, 0);
   assert.equal(new Set(result.run.logicalTests.map((test: any) => test.name)).size, 6);
+  const groups = await (await fetch(`${baseUrl}/api/failure-groups?runId=${result.run.id}`)).json() as any[];
+  assert.equal(groups.length, 2);
+  const checkoutGroup = groups.find(group => group.summary === "checkout failed");
+  assert.ok(checkoutGroup);
+  assert.deepEqual(checkoutGroup.tests, ["submitOrder"]);
+  assert.deepEqual(checkoutGroup.outcomes, ["FAILED"]);
 });
 
 test("run list supports status and text filters", async () => {
