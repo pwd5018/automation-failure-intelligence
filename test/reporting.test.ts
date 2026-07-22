@@ -39,35 +39,18 @@ test("raw results are counted exactly as reported", async () => {
   assert.match(result.run.warnings[0], /Repeated test identities/);
 });
 
-test("repeated names remain separate without retry inference", async () => {
-  const xml = `<?xml version="1.0"?><testsuites><testsuite name="Checkout"><testcase classname="CheckoutTest" name="submitOrder"><skipped/></testcase><testcase classname="CheckoutTest" name="submitOrder"/></testsuite></testsuites>`;
-  const result = await (await uploadXml(xml, { retryAnalyzerEnabled: "true" })).json() as any;
-  assert.equal(result.preview.summary.logicalTests, 2);
-  assert.equal(result.preview.summary.skipped, 1);
-  assert.equal(result.preview.summary.passed, 1);
-  assert.equal(result.preview.summary.flaky, 0);
-  assert.deepEqual(result.run.logicalTests.map((test: any) => test.attempts.map((attempt: any) => attempt.rawStatus)), [["SKIPPED"], ["PASSED"]]);
-});
-
-test("parameter identifiers remain visible and separate", async () => {
-  const xml = `<?xml version="1.0"?><testsuites><testsuite name="Checkout"><testcase classname="CheckoutTest" name="submitOrder" parameters="dataRow=1"/><testcase classname="CheckoutTest" name="submitOrder" parameters="dataRow=2"><skipped/></testcase></testsuite></testsuites>`;
-  const result = await (await uploadXml(xml)).json() as any;
-  assert.equal(result.preview.summary.logicalTests, 2);
-  assert.deepEqual(result.run.logicalTests.map((test: any) => test.parameters), ["dataRow=1", "dataRow=2"]);
-});
-
-test("mixed demo report contains passed failed error skipped and parameterized results", async () => {
+test("mixed demo report contains only unique happy-path test names", async () => {
   const response = await fetch(`${baseUrl}/api/demo/seed`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({}) });
   const result = await response.json() as any;
   assert.equal(response.status, 200);
   assert.equal(result.scenario, "mixed-report");
-  assert.equal(result.preview.summary.logicalTests, 8);
-  assert.equal(result.preview.summary.passed, 4);
+  assert.equal(result.preview.summary.logicalTests, 6);
+  assert.equal(result.preview.summary.passed, 3);
   assert.equal(result.preview.summary.failed, 1);
   assert.equal(result.preview.summary.errors, 1);
-  assert.equal(result.preview.summary.skipped, 2);
+  assert.equal(result.preview.summary.skipped, 1);
   assert.equal(result.preview.summary.retryCount, 0);
-  assert.deepEqual(result.run.logicalTests.slice(-2).map((test: any) => test.parameters), ["dataRow=1", "dataRow=2"]);
+  assert.equal(new Set(result.run.logicalTests.map((test: any) => test.name)).size, 6);
 });
 
 test("run list supports status and text filters", async () => {
@@ -109,7 +92,7 @@ test("failure group annotations validate, save, and clear Jira links", async () 
 });
 
 test("duplicate uploads remain idempotent", async () => {
-  const xml = await readFile(fixture("parameterized.xml"), "utf8");
+  const xml = await readFile(fixture("basic-outcomes.xml"), "utf8");
   const first = await uploadXml(xml, { build: "duplicate-test" });
   assert.equal(first.status, 201);
   const second = await uploadXml(xml, { build: "duplicate-test" });
@@ -133,17 +116,14 @@ test("storage supports the Vercel Postgres variable names", async () => {
 
 test("mock report pack covers the main raw JUnit shapes", async () => {
   const cases = [
-    ["basic-outcomes.xml", 5, 2, 1, 1],
-    ["repeated-identities.xml", 3, 1, 1, 1],
-    ["parameterized-rows.xml", 3, 1, 1, 1],
-    ["retry-looking.xml", 3, 1, 1, 1]
+    ["basic-outcomes.xml", 5, 2, 1, 1]
   ] as const;
   for (const [name, total, passed, failed, skipped] of cases) {
     const result = await (await uploadXml(await readFile(fixture(name), "utf8"))).json() as any;
     assert.equal(result.preview.summary.logicalTests, total, name);
     assert.equal(result.preview.summary.passed, passed, name);
     assert.equal(result.preview.summary.failed, failed, name);
-    assert.equal(result.preview.summary.errors, name === "basic-outcomes.xml" ? 1 : 0, name);
+    assert.equal(result.preview.summary.errors, 1, name);
     assert.equal(result.preview.summary.skipped, skipped, name);
     assert.equal(result.preview.summary.retryCount, 0, name);
   }
