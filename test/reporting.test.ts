@@ -57,6 +57,8 @@ test("mixed demo report contains only unique happy-path test names", async () =>
   assert.ok(checkoutGroup);
   assert.deepEqual(checkoutGroup.tests, ["submitOrder"]);
   assert.deepEqual(checkoutGroup.outcomes, ["FAILED"]);
+  const searchedGroups = await (await fetch(`${baseUrl}/api/failure-groups?runId=${result.run.id}&q=checkout`)).json() as any[];
+  assert.equal(searchedGroups.length, 1);
 });
 
 test("run list supports status and text filters", async () => {
@@ -79,6 +81,12 @@ test("failure groups retain exact run and test evidence", async () => {
   assert.ok(group.runs.includes(result.run.id));
   assert.ok(group.testIds.includes(result.run.logicalTests[0].id));
   assert.deepEqual(group.outcomes, ["FAILED"]);
+  const second = await (await uploadXml(xml, { build: "evidence-build-2", externalRunId: "evidence-run-2" })).json() as any;
+  const selectedGroups = await (await fetch(`${baseUrl}/api/failure-groups?runId=${second.run.id}`)).json() as any[];
+  const selectedGroup = selectedGroups.find(item => item.summary === "unique evidence failure");
+  assert.equal(selectedGroup.selectedRunOccurrences, 1);
+  assert.equal(selectedGroup.occurrences, 2);
+  assert.deepEqual(selectedGroup.selectedRunTests, ["uniqueFailure"]);
 });
 
 test("failure group annotations validate, save, and clear Jira links", async () => {
