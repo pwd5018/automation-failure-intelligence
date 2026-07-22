@@ -52,13 +52,18 @@ test("mixed demo report contains only unique happy-path test names", async () =>
   assert.equal(result.preview.summary.retryCount, 0);
   assert.equal(new Set(result.run.logicalTests.map((test: any) => test.name)).size, 6);
   const groups = await (await fetch(`${baseUrl}/api/failure-groups?runId=${result.run.id}`)).json() as any[];
-  assert.equal(groups.length, 2);
-  const checkoutGroup = groups.find(group => group.summary === "checkout failed");
-  assert.ok(checkoutGroup);
-  assert.deepEqual(checkoutGroup.tests, ["submitOrder"]);
-  assert.deepEqual(checkoutGroup.outcomes, ["FAILED"]);
+  assert.equal(groups.length, 0);
   const searchedGroups = await (await fetch(`${baseUrl}/api/failure-groups?runId=${result.run.id}&q=checkout`)).json() as any[];
-  assert.equal(searchedGroups.length, 1);
+  assert.equal(searchedGroups.length, 0);
+});
+
+test("failure groups appear only for multiple matching failures in one run", async () => {
+  const xml = `<?xml version="1.0"?><testsuites><testsuite name="SharedFailureSuite"><testcase classname="CheckoutTest" name="submitOrder"><failure message="shared failure">same stack</failure></testcase><testcase classname="PaymentTest" name="chargeCard"><failure message="shared failure">same stack</failure></testcase></testsuite></testsuites>`;
+  const result = await (await uploadXml(xml, { externalRunId: "shared-failure-run" })).json() as any;
+  const groups = await (await fetch(`${baseUrl}/api/failure-groups?runId=${result.run.id}`)).json() as any[];
+  assert.equal(groups.length, 1);
+  assert.equal(groups[0].selectedRunOccurrences, 2);
+  assert.deepEqual(groups[0].selectedRunTests.sort(), ["chargeCard", "submitOrder"]);
 });
 
 test("run list supports status and text filters", async () => {
@@ -83,10 +88,10 @@ test("failure groups retain exact run and test evidence", async () => {
   assert.deepEqual(group.outcomes, ["FAILED"]);
   const second = await (await uploadXml(xml, { build: "evidence-build-2", externalRunId: "evidence-run-2" })).json() as any;
   const selectedGroups = await (await fetch(`${baseUrl}/api/failure-groups?runId=${second.run.id}`)).json() as any[];
-  const selectedGroup = selectedGroups.find(item => item.summary === "unique evidence failure");
-  assert.equal(selectedGroup.selectedRunOccurrences, 1);
-  assert.equal(selectedGroup.occurrences, 2);
-  assert.deepEqual(selectedGroup.selectedRunTests, ["uniqueFailure"]);
+  assert.equal(selectedGroups.length, 0);
+  const allGroups = await (await fetch(`${baseUrl}/api/failure-groups`)).json() as any[];
+  const historicalGroup = allGroups.find(item => item.summary === "unique evidence failure");
+  assert.equal(historicalGroup.occurrences, 2);
 });
 
 test("failure group annotations validate, save, and clear Jira links", async () => {
