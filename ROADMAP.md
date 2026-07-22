@@ -1,0 +1,61 @@
+# Automation Failure Intelligence Roadmap
+
+## Product direction
+
+Automation Failure Intelligence is a private QA-triage workspace for understanding stored automated-test runs. The first release reports JUnit results exactly as received and keeps investigation evidence attached to the source run.
+
+## Current status
+
+- Truthful raw-result reporting is active.
+- `PASSED`, `FAILED`, `ERROR`, and `SKIPPED` remain distinct source outcomes.
+- Repeated names and parameterized rows remain separate results.
+- Retry and flaky inference are disabled.
+- Mixed demo data and mock JUnit fixtures are available.
+- Supabase/Postgres persistence is active in Vercel with an in-memory local fallback.
+
+## Phases
+
+### Phase 1 - Stored run workspace (implemented)
+
+Current implementation slice:
+
+- Separate failed and error counts.
+- Search and status filters for stored runs.
+- Test-level search and status filters.
+- Visible storage connection state.
+- Clear run metadata and mobile-friendly result rows.
+
+### Phase 2 - Failure triage workspace (initial slice implemented)
+
+- Preserve exact normalized failure signatures.
+- Link groups to exact runs and test results.
+- Preserve failed versus error outcomes in group evidence.
+- Improve evidence, occurrence history, classification, and notes.
+- Keep Jira integration manual for now.
+
+### Phase 3 - Real-world JUnit compatibility
+
+- Expand framework-shaped fixtures.
+- Cover nested suites, metadata, large reports, and empty reports.
+- Add adapters only where framework metadata is explicit.
+- Do not infer retries from status sequences.
+
+### Phase 4 - Normalized database model
+
+- Introduce indexed relational run and test-result records after the raw contract stabilizes.
+- Retain the original XML/payload for provenance.
+- Migrate without changing the API contract.
+
+### Deferred collaboration work
+
+- Authentication.
+- Team/project isolation.
+- Roles and audit history.
+- CI/webhook ingestion.
+- Automatic Jira integration.
+- Retry and flaky inference without explicit framework metadata.
+
+## Validation gate
+
+Every phase must pass `npm test`, fixture validation, and a Vercel smoke test. The smoke test checks `/api/health`, loads the demo, refreshes, redeploys, and confirms stored runs remain available.
+
