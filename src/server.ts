@@ -267,9 +267,18 @@ app.get("/api/failure-groups", (req, res) => {
     const runMatch = !runId || (group.runs || []).includes(runId);
     const outcomeMatch = !outcome || (group.outcomes || []).includes(outcome as "FAILED" | "ERROR");
     const classificationMatch = !classification || group.classification === classification;
-    const searchText = normalize([group.summary, group.message, ...(group.tests || []), ...(group.suites || []), ...(group.builds || [])].join(" "));
+    const searchText = normalize([group.summary, group.message, ...(group.tests || [])].join(" "));
     return runMatch && outcomeMatch && classificationMatch && (!query || searchText.includes(query));
-  }).sort((a, b) => b.occurrences - a.occurrences);
+  }).map(group => {
+    if (!runId) return group;
+    const evidence = (group.evidence || []).filter(item => item.runId === runId);
+    return {
+      ...group,
+      selectedRunOccurrences: evidence.length || ((group.runs || []).includes(runId) ? 1 : 0),
+      selectedRunTests: [...new Set(evidence.map(item => item.testName))],
+      selectedRunRuns: [runId]
+    };
+  }).sort((a, b) => (((b as any).selectedRunOccurrences ?? b.occurrences) - ((a as any).selectedRunOccurrences ?? a.occurrences)));
   res.json(result);
 });
 app.get("/api/failure-groups/:id", (req, res) => { const group = [...groups.values()].find(item => item.id === req.params.id); group ? res.json(group) : res.status(404).json({ error: "Failure group not found" }); });
