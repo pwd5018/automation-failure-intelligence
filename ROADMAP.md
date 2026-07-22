@@ -10,7 +10,7 @@ Automation Failure Intelligence is a private QA-triage workspace for understandi
 - `PASSED`, `FAILED`, `ERROR`, and `SKIPPED` remain distinct source outcomes.
 - The current demo uses unique test names and does not simulate parameterized tests.
 - Retry and flaky inference are disabled.
-- Mixed demo data and mock JUnit fixtures are available.
+- A stable demo-run pack and mock JUnit fixtures are available.
 - Supabase/Postgres persistence is active in Vercel with an in-memory local fallback.
 
 ## Phases
