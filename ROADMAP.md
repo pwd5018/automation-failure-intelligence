@@ -25,12 +25,15 @@ Current implementation slice:
 - Visible storage connection state.
 - Clear run metadata and mobile-friendly result rows.
 
-### Phase 2 - Failure triage workspace (initial slice implemented)
+### Phase 2 - Failure triage workspace (implemented)
 
 - Preserve exact normalized failure signatures.
 - Link groups to exact runs and test results.
 - Preserve failed versus error outcomes in group evidence.
-- Improve evidence, occurrence history, classification, and notes.
+- Filter groups by outcome and search term.
+- Navigate from a failure group to the exact stored run and test result.
+- Show first/last occurrence timestamps and exact reported evidence.
+- Validate and persist classification, notes, and manually entered Jira links.
 - Keep Jira integration manual for now.
 
 ### Phase 3 - Real-world JUnit compatibility
