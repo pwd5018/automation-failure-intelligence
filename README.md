@@ -22,6 +22,7 @@ The current model is intentionally simple and truthful:
 - `SKIPPED` counts as skipped.
 - No retry or flaky interpretation is inferred from status sequences.
 - The current demo uses unique test names and does not simulate parameterized tests.
+- Failure groups appear in a selected run only when at least two failed/error tests share a signature.
 
 ## Dashboard demos
 
