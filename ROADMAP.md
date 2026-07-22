@@ -34,6 +34,7 @@ Current implementation slice:
 - Navigate from a failure group to the exact stored run and test result.
 - Show first/last occurrence timestamps and exact reported evidence.
 - Validate and persist classification, notes, and manually entered Jira links.
+- Show a failure group only when multiple failed/error tests in the selected run share its signature.
 - Keep Jira integration manual for now.
 
 ### Phase 3 - Real-world JUnit compatibility
