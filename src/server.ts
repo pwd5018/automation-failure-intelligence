@@ -91,6 +91,7 @@ type FailureGroup = {
   testIds: string[];
   runs: string[];
   outcomes: Array<"FAILED" | "ERROR">;
+  evidence: Array<{ runId: string; testId: string; testName: string; outcome: "FAILED" | "ERROR"; build: string; environment: string }>;
   suites: string[];
   environments: string[];
   builds: string[];
@@ -210,7 +211,7 @@ function addFailureGroup(run: TestRun, test: LogicalTest): void {
   const sig = signature(message, stack);
   const existing = groups.get(sig);
   if (!existing) {
-    groups.set(sig, { id: `fg_${sig}`, signature: sig, summary: message.slice(0, 120), message, stackTrace: stack, tests: [test.name], testIds: [test.id], runs: [run.id], outcomes: [test.finalStatus === "error" ? "ERROR" : "FAILED"], suites: [test.suite], environments: [run.environment], builds: [run.build], occurrences: 1, firstSeen: attempt.timestamp, lastSeen: attempt.timestamp, classification: "unknown", notes: "", recoveredAttempts: 0 });
+    groups.set(sig, { id: `fg_${sig}`, signature: sig, summary: message.slice(0, 120), message, stackTrace: stack, tests: [test.name], testIds: [test.id], runs: [run.id], outcomes: [test.finalStatus === "error" ? "ERROR" : "FAILED"], evidence: [{ runId: run.id, testId: test.id, testName: test.name, outcome: test.finalStatus === "error" ? "ERROR" : "FAILED", build: run.build, environment: run.environment }], suites: [test.suite], environments: [run.environment], builds: [run.build], occurrences: 1, firstSeen: attempt.timestamp, lastSeen: attempt.timestamp, classification: "unknown", notes: "", recoveredAttempts: 0 });
   } else {
     existing.occurrences += 1;
     existing.lastSeen = attempt.timestamp;
@@ -218,6 +219,8 @@ function addFailureGroup(run: TestRun, test: LogicalTest): void {
     existing.testIds = [...new Set([...(existing.testIds || []), test.id])];
     existing.runs = [...new Set([...(existing.runs || []), run.id])];
     existing.outcomes = [...new Set<"FAILED" | "ERROR">([...(existing.outcomes || []), test.finalStatus === "error" ? "ERROR" : "FAILED"])];
+    const outcome: "FAILED" | "ERROR" = test.finalStatus === "error" ? "ERROR" : "FAILED";
+    existing.evidence = [...(existing.evidence || []), { runId: run.id, testId: test.id, testName: test.name, outcome, build: run.build, environment: run.environment }].filter((item, index, items) => items.findIndex(other => other.runId === item.runId && other.testId === item.testId) === index);
     existing.suites = [...new Set([...existing.suites, test.suite])];
     existing.environments = [...new Set([...existing.environments, run.environment])];
     existing.builds = [...new Set([...existing.builds, run.build])];
@@ -254,9 +257,40 @@ app.get("/api/test-runs", (req, res) => {
 app.get("/api/test-runs/:id", (req, res) => { const run = runs.get(req.params.id); run ? res.json(publicRun(run)) : res.status(404).json({ error: "Test run not found" }); });
 app.post("/api/test-runs/preview", upload.single("file"), (req, res) => { if (!req.file) return res.status(400).json({ error: "Attach a JUnit XML file using the 'file' field." }); try { res.json(preview(parseJUnit(req.file.buffer.toString("utf8"), req.body))); } catch (error) { res.status(400).json({ error: error instanceof Error ? error.message : "Invalid JUnit XML" }); } });
 app.post("/api/test-runs", upload.single("file"), async (req, res) => { if (!req.file) return res.status(400).json({ error: "Attach a JUnit XML file using the 'file' field." }); try { const run = await ingest(parseJUnit(req.file.buffer.toString("utf8"), req.body)); res.status(201).json({ run: publicRun(run), preview: preview(run) }); } catch (error) { res.status(400).json({ error: error instanceof Error ? error.message : "Invalid JUnit XML" }); } });
-app.get("/api/failure-groups", (_req, res) => res.json([...groups.values()].sort((a, b) => b.occurrences - a.occurrences)));
-app.get("/api/failure-groups/:id", (req, res) => { const group = groups.get(req.params.id); group ? res.json(group) : res.status(404).json({ error: "Failure group not found" }); });
-app.patch("/api/failure-groups/:id", async (req, res) => { const group = groups.get(req.params.id); if (!group) return res.status(404).json({ error: "Failure group not found" }); if (req.body.classification) group.classification = req.body.classification; if (typeof req.body.notes === "string") group.notes = req.body.notes; if (req.body.jiraIssue) group.jiraIssue = req.body.jiraIssue; await storage.saveGroup(group); res.json(group); });
+app.get("/api/failure-groups", (req, res) => {
+  const outcome = text(req.query.outcome).trim().toUpperCase();
+  const classification = text(req.query.classification).trim().toLowerCase();
+  const query = normalize(text(req.query.q));
+  if (outcome && outcome !== "FAILED" && outcome !== "ERROR") return res.status(400).json({ error: "outcome must be FAILED or ERROR." });
+  const result = [...groups.values()].filter(group => {
+    const outcomeMatch = !outcome || (group.outcomes || []).includes(outcome as "FAILED" | "ERROR");
+    const classificationMatch = !classification || group.classification === classification;
+    const searchText = normalize([group.summary, group.message, ...(group.tests || []), ...(group.suites || []), ...(group.builds || [])].join(" "));
+    return outcomeMatch && classificationMatch && (!query || searchText.includes(query));
+  }).sort((a, b) => b.occurrences - a.occurrences);
+  res.json(result);
+});
+app.get("/api/failure-groups/:id", (req, res) => { const group = [...groups.values()].find(item => item.id === req.params.id); group ? res.json(group) : res.status(404).json({ error: "Failure group not found" }); });
+app.patch("/api/failure-groups/:id", async (req, res) => {
+  const group = [...groups.values()].find(item => item.id === req.params.id);
+  if (!group) return res.status(404).json({ error: "Failure group not found" });
+  const classifications: Classification[] = ["product-defect", "test-defect", "environment-issue", "test-data-issue", "known-failure", "duplicate", "unknown"];
+  if (req.body.classification !== undefined) {
+    if (!classifications.includes(req.body.classification)) return res.status(400).json({ error: "Invalid classification." });
+    group.classification = req.body.classification;
+  }
+  if (req.body.notes !== undefined) {
+    if (typeof req.body.notes !== "string") return res.status(400).json({ error: "notes must be a string." });
+    group.notes = req.body.notes;
+  }
+  if (req.body.jiraIssue === null) delete group.jiraIssue;
+  else if (req.body.jiraIssue !== undefined) {
+    if (!req.body.jiraIssue || typeof req.body.jiraIssue.key !== "string") return res.status(400).json({ error: "jiraIssue.key must be a string." });
+    group.jiraIssue = { key: req.body.jiraIssue.key, ...(typeof req.body.jiraIssue.url === "string" ? { url: req.body.jiraIssue.url } : {}) };
+  }
+  await storage.saveGroup(group);
+  res.json(group);
+});
 app.post("/api/demo/seed", async (req, res) => {
   const body = req.body || {};
   const demoXml = `<?xml version="1.0"?><testsuites><testsuite name="Demo checkout"><testcase classname="LoginTest" name="validLogin"/><testcase classname="CheckoutTest" name="submitOrder"><failure message="checkout failed">checkout failed at checkout.ts:1</failure></testcase><testcase classname="ProfileTest" name="loadProfile"><skipped/></testcase><testcase classname="SearchTest" name="searchProducts"/><testcase classname="CartTest" name="addItem"><error message="cart setup error">cart setup error at cart.ts:4</error></testcase><testcase classname="InventoryTest" name="checkStock"/><testcase classname="CheckoutTest" name="submitOrder" parameters="dataRow=1"/><testcase classname="CheckoutTest" name="submitOrder" parameters="dataRow=2"><skipped/></testcase></testsuite></testsuites>`;
