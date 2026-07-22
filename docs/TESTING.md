@@ -17,7 +17,7 @@ Run `npm test`. The suite builds TypeScript, starts the service, exercises the A
 ## Vercel smoke test
 
 1. Open `/api/health` and confirm `storage` is `postgres`.
-2. Load the mixed demo report.
+2. Load the stable demo-run pack and inspect the clean, baseline, expanded, and shared-failure runs.
 3. Confirm the run appears in history.
 4. Refresh the dashboard.
 5. Trigger a redeploy.
