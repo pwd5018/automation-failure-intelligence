@@ -258,15 +258,17 @@ app.get("/api/test-runs/:id", (req, res) => { const run = runs.get(req.params.id
 app.post("/api/test-runs/preview", upload.single("file"), (req, res) => { if (!req.file) return res.status(400).json({ error: "Attach a JUnit XML file using the 'file' field." }); try { res.json(preview(parseJUnit(req.file.buffer.toString("utf8"), req.body))); } catch (error) { res.status(400).json({ error: error instanceof Error ? error.message : "Invalid JUnit XML" }); } });
 app.post("/api/test-runs", upload.single("file"), async (req, res) => { if (!req.file) return res.status(400).json({ error: "Attach a JUnit XML file using the 'file' field." }); try { const run = await ingest(parseJUnit(req.file.buffer.toString("utf8"), req.body)); res.status(201).json({ run: publicRun(run), preview: preview(run) }); } catch (error) { res.status(400).json({ error: error instanceof Error ? error.message : "Invalid JUnit XML" }); } });
 app.get("/api/failure-groups", (req, res) => {
+  const runId = text(req.query.runId).trim();
   const outcome = text(req.query.outcome).trim().toUpperCase();
   const classification = text(req.query.classification).trim().toLowerCase();
   const query = normalize(text(req.query.q));
   if (outcome && outcome !== "FAILED" && outcome !== "ERROR") return res.status(400).json({ error: "outcome must be FAILED or ERROR." });
   const result = [...groups.values()].filter(group => {
+    const runMatch = !runId || (group.runs || []).includes(runId);
     const outcomeMatch = !outcome || (group.outcomes || []).includes(outcome as "FAILED" | "ERROR");
     const classificationMatch = !classification || group.classification === classification;
     const searchText = normalize([group.summary, group.message, ...(group.tests || []), ...(group.suites || []), ...(group.builds || [])].join(" "));
-    return outcomeMatch && classificationMatch && (!query || searchText.includes(query));
+    return runMatch && outcomeMatch && classificationMatch && (!query || searchText.includes(query));
   }).sort((a, b) => b.occurrences - a.occurrences);
   res.json(result);
 });
@@ -301,7 +303,10 @@ createStorage().then(async configuredStorage => {
   storage = configuredStorage;
   const state = await storage.load();
   state.runs.forEach(run => runs.set(run.id, run));
-  state.groups.forEach(group => groups.set(group.id, group));
+  // Ingestion indexes groups by signature. Keep the same key after reload so a
+  // repeated report updates the existing group instead of creating a duplicate.
+  // The first row is newest because storage loads groups by updated_at DESC.
+  state.groups.forEach(group => { if (!groups.has(group.signature)) groups.set(group.signature, group); });
   app.listen(Number(process.env.PORT) || 3000, () => console.log(`Automation Failure Intelligence running on http://localhost:${Number(process.env.PORT) || 3000}`));
 }).catch(error => { console.error("Storage startup failed; using in-memory storage:", error); storage = { persistent: false, load: async () => ({ runs: [], groups: [] }), saveRun: async () => undefined, saveGroup: async () => undefined }; app.listen(Number(process.env.PORT) || 3000, () => console.log("Automation Failure Intelligence running without persistent storage.")); });
 
