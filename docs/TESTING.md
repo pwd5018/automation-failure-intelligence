@@ -12,6 +12,7 @@ Run `npm test`. The suite builds TypeScript, starts the service, exercises the A
 - Storage health reporting.
 - Duplicate ingestion behavior.
 - Failure-group persistence behavior where a database is available.
+- Single failed/error results do not appear as selected-run failure groups; shared signatures across multiple tests do.
 
 ## Vercel smoke test
 
