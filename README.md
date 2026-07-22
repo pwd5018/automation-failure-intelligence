@@ -18,6 +18,7 @@ The current model is intentionally simple and truthful:
 - Every raw testcase is one logical result by default.
 - `PASSED` counts as passed.
 - `FAILED` and `ERROR` count as failed.
+- `FAILED` and `ERROR` are exposed as separate summary counts.
 - `SKIPPED` counts as skipped.
 - Repeated names are shown as separate reported results.
 - No retry or flaky interpretation is inferred from status sequences.
@@ -39,9 +40,10 @@ For Vercel, the Supabase integration can provide `POSTGRES_URL` and related vari
 
 - `POST /api/test-runs/preview` - inspect a JUnit XML report without storing it.
 - `POST /api/test-runs` - ingest a JUnit XML report.
-- `GET /api/test-runs` - list ingested runs.
+- `GET /api/test-runs` - list ingested runs; supports `status` and `q` filters.
+- `GET /api/health` - report storage mode and safe connection diagnostics.
 - `GET /api/failure-groups` - list confirmed failure groups.
 - `POST /api/demo/seed` - load the mixed demo report.
 
-The prototype uses in-memory storage. Persistent storage, authentication, deeper framework-specific adapters, and real Jira integration are future work.
+Authentication, deeper framework-specific adapters, normalized storage, and real Jira integration are future work.
 
