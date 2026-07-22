@@ -8,7 +8,7 @@ Automation Failure Intelligence is a private QA-triage workspace for understandi
 
 - Truthful raw-result reporting is active.
 - `PASSED`, `FAILED`, `ERROR`, and `SKIPPED` remain distinct source outcomes.
-- Repeated names and parameterized rows remain separate results.
+- The current demo uses unique test names and does not simulate parameterized tests.
 - Retry and flaky inference are disabled.
 - Mixed demo data and mock JUnit fixtures are available.
 - Supabase/Postgres persistence is active in Vercel with an in-memory local fallback.
