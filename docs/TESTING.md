@@ -7,8 +7,7 @@ Run `npm test`. The suite builds TypeScript, starts the service, exercises the A
 ## Required coverage
 
 - Passed, failed, error, and skipped records.
-- Repeated names remain separate.
-- Parameterized rows remain separate.
+- The current demo uses unique test names and does not simulate parameterized rows.
 - Run search and status filters.
 - Storage health reporting.
 - Duplicate ingestion behavior.
