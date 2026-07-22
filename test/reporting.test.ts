@@ -32,6 +32,7 @@ test("raw results are counted exactly as reported", async () => {
   assert.equal(result.preview.summary.logicalTests, 4);
   assert.equal(result.preview.summary.passed, 2);
   assert.equal(result.preview.summary.failed, 1);
+  assert.equal(result.preview.summary.errors, 0);
   assert.equal(result.preview.summary.skipped, 1);
   assert.equal(result.preview.summary.retryCount, 0);
   assert.equal(result.run.logicalTests[1].attempts.length, 1);
@@ -62,10 +63,33 @@ test("mixed demo report contains passed failed error skipped and parameterized r
   assert.equal(result.scenario, "mixed-report");
   assert.equal(result.preview.summary.logicalTests, 8);
   assert.equal(result.preview.summary.passed, 4);
-  assert.equal(result.preview.summary.failed, 2);
+  assert.equal(result.preview.summary.failed, 1);
+  assert.equal(result.preview.summary.errors, 1);
   assert.equal(result.preview.summary.skipped, 2);
   assert.equal(result.preview.summary.retryCount, 0);
   assert.deepEqual(result.run.logicalTests.slice(-2).map((test: any) => test.parameters), ["dataRow=1", "dataRow=2"]);
+});
+
+test("run list supports status and text filters", async () => {
+  const xml = `<?xml version="1.0"?><testsuites><testsuite name="FilterSuite"><testcase classname="FilterTest" name="uniqueError"><error message="filter error">filter error</error></testcase></testsuite></testsuites>`;
+  await uploadXml(xml, { build: "filter-build-unique", externalRunId: "filter-run-unique" });
+  const errorRuns = await (await fetch(`${baseUrl}/api/test-runs?status=ERROR`)).json() as any[];
+  assert.ok(errorRuns.some(run => run.build === "filter-build-unique"));
+  const searchedRuns = await (await fetch(`${baseUrl}/api/test-runs?q=uniqueError`)).json() as any[];
+  assert.equal(searchedRuns.length, 1);
+  assert.equal(searchedRuns[0].build, "filter-build-unique");
+  assert.equal((await fetch(`${baseUrl}/api/test-runs?status=NOT_A_STATUS`)).status, 400);
+});
+
+test("failure groups retain exact run and test evidence", async () => {
+  const xml = `<?xml version="1.0"?><testsuites><testsuite name="EvidenceSuite"><testcase classname="EvidenceTest" name="uniqueFailure"><failure message="unique evidence failure">unique evidence failure</failure></testcase></testsuite></testsuites>`;
+  const result = await (await uploadXml(xml, { build: "evidence-build", externalRunId: "evidence-run" })).json() as any;
+  const groups = await (await fetch(`${baseUrl}/api/failure-groups`)).json() as any[];
+  const group = groups.find(item => item.summary === "unique evidence failure");
+  assert.ok(group);
+  assert.ok(group.runs.includes(result.run.id));
+  assert.ok(group.testIds.includes(result.run.logicalTests[0].id));
+  assert.deepEqual(group.outcomes, ["FAILED"]);
 });
 
 test("duplicate uploads remain idempotent", async () => {
@@ -93,7 +117,7 @@ test("storage supports the Vercel Postgres variable names", async () => {
 
 test("mock report pack covers the main raw JUnit shapes", async () => {
   const cases = [
-    ["basic-outcomes.xml", 5, 2, 2, 1],
+    ["basic-outcomes.xml", 5, 2, 1, 1],
     ["repeated-identities.xml", 3, 1, 1, 1],
     ["parameterized-rows.xml", 3, 1, 1, 1],
     ["retry-looking.xml", 3, 1, 1, 1]
@@ -103,6 +127,7 @@ test("mock report pack covers the main raw JUnit shapes", async () => {
     assert.equal(result.preview.summary.logicalTests, total, name);
     assert.equal(result.preview.summary.passed, passed, name);
     assert.equal(result.preview.summary.failed, failed, name);
+    assert.equal(result.preview.summary.errors, name === "basic-outcomes.xml" ? 1 : 0, name);
     assert.equal(result.preview.summary.skipped, skipped, name);
     assert.equal(result.preview.summary.retryCount, 0, name);
   }
