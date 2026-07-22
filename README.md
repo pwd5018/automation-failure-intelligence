@@ -20,15 +20,14 @@ The current model is intentionally simple and truthful:
 - `FAILED` and `ERROR` count as failed.
 - `FAILED` and `ERROR` are exposed as separate summary counts.
 - `SKIPPED` counts as skipped.
-- Repeated names are shown as separate reported results.
 - No retry or flaky interpretation is inferred from status sequences.
-- Parameter/data-provider identifiers remain part of identity.
+- The current demo uses unique test names and does not simulate parameterized tests.
 
 ## Dashboard demos
 
-The dashboard has one mixed demo report. It includes passed, failed, error, skipped, repeated-name, and parameterized testcase records. The dashboard loads it automatically and the `Load demo report` button reloads the same report.
+The dashboard has one mixed demo report with unique test names and passed, failed, error, and skipped results. The dashboard loads it automatically and the `Load demo report` button reloads the same report.
 
-The test suite also includes mock reports for basic outcomes, repeated identities, parameterized rows, and retry-looking sequences. These fixtures are intentionally interpreted as raw results without retry inference.
+The test suite includes a basic mock report and malformed-report coverage. Retry and parameterized scenarios are not simulated in the current dashboard.
 
 ## Persistence
 
