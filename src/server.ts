@@ -303,11 +303,39 @@ app.patch("/api/failure-groups/:id", async (req, res) => {
   await storage.saveGroup(group);
   res.json(group);
 });
+async function clearLegacyDemoData(): Promise<void> {
+  const legacyIds = [...runs.values()].filter(run => run.build === "demo-mixed-report").map(run => run.id);
+  if (!legacyIds.length) return;
+  for (const id of legacyIds) { runs.delete(id); await storage.deleteRun(id); }
+  for (const [key, group] of groups.entries()) {
+    const remainingRuns = (group.runs || []).filter(runId => !legacyIds.includes(runId));
+    if (remainingRuns.length === 0 && (group.runs || []).some(runId => legacyIds.includes(runId))) {
+      groups.delete(key);
+      await storage.deleteGroup(group.id);
+      continue;
+    }
+    if (remainingRuns.length !== (group.runs || []).length) {
+      group.runs = remainingRuns;
+      group.evidence = (group.evidence || []).filter(item => !legacyIds.includes(item.runId));
+      group.occurrences = group.evidence.length || remainingRuns.length;
+      await storage.saveGroup(group);
+    }
+  }
+}
+
 app.post("/api/demo/seed", async (req, res) => {
   const body = req.body || {};
-  const demoXml = `<?xml version="1.0"?><testsuites><testsuite name="Demo checkout"><testcase classname="LoginTest" name="validLogin"/><testcase classname="CheckoutTest" name="submitOrder"><failure message="checkout failed">checkout failed at checkout.ts:1</failure></testcase><testcase classname="ProfileTest" name="loadProfile"><skipped/></testcase><testcase classname="SearchTest" name="searchProducts"/><testcase classname="CartTest" name="addItem"><error message="cart setup error">cart setup error at cart.ts:4</error></testcase><testcase classname="InventoryTest" name="checkStock"/></testsuite></testsuites>`;
-  const run = await ingest(parseJUnit(demoXml, { projectId: body.projectId || "default", build: "demo-mixed-report", environment: "demo", externalRunId: `demo-mixed-report-${Date.now()}` }));
-  res.json({ ok: true, scenario: "mixed-report", run: publicRun(run), preview: preview(run) });
+  await clearLegacyDemoData();
+  const reports = [
+    { id: "demo-baseline", build: "demo-baseline", xml: `<?xml version="1.0"?><testsuites><testsuite name="Baseline checkout"><testcase classname="LoginTest" name="validLogin"/><testcase classname="CheckoutTest" name="submitOrder"><failure message="checkout failed">checkout failed at checkout.ts:1</failure></testcase><testcase classname="ProfileTest" name="loadProfile"><skipped/></testcase><testcase classname="SearchTest" name="searchProducts"/><testcase classname="CartTest" name="addItem"><error message="cart setup error">cart setup error at cart.ts:4</error></testcase><testcase classname="InventoryTest" name="checkStock"/></testsuite></testsuites>` },
+    { id: "demo-clean-pass", build: "demo-clean-pass", xml: `<?xml version="1.0"?><testsuites><testsuite name="Clean checkout"><testcase classname="LoginTest" name="validLogin"/><testcase classname="CheckoutTest" name="submitOrder"/><testcase classname="ProfileTest" name="loadProfile"/><testcase classname="SearchTest" name="searchProducts"/><testcase classname="InventoryTest" name="checkStock"/></testsuite></testsuites>` },
+    { id: "demo-shared-failure", build: "demo-shared-failure", xml: `<?xml version="1.0"?><testsuites><testsuite name="Shared failure investigation"><testcase classname="CheckoutTest" name="submitOrder"><failure message="database unavailable">connection refused</failure></testcase><testcase classname="PaymentTest" name="chargeCard"><failure message="database unavailable">connection refused</failure></testcase><testcase classname="LoginTest" name="validLogin"/><testcase classname="ProfileTest" name="loadProfile"/><testcase classname="SearchTest" name="searchProducts"/></testsuite></testsuites>` },
+    { id: "demo-expanded", build: "demo-expanded", xml: `<?xml version="1.0"?><testsuites><testsuite name="Expanded checkout"><testcase classname="LoginTest" name="validLogin"/><testcase classname="CheckoutTest" name="submitOrder"><failure message="checkout failed">checkout failed at checkout.ts:1</failure></testcase><testcase classname="ProfileTest" name="loadProfile"><skipped/></testcase><testcase classname="SearchTest" name="searchProducts"/><testcase classname="CartTest" name="addItem"><error message="cart setup error">cart setup error at cart.ts:4</error></testcase><testcase classname="InventoryTest" name="checkStock"/><testcase classname="NotificationTest" name="sendReceipt"/><testcase classname="AuditTest" name="recordOrder"/></testsuite></testsuites>` }
+  ];
+  const ingested = [];
+  for (const report of reports) ingested.push(await ingest(parseJUnit(report.xml, { projectId: body.projectId || "default", build: report.build, environment: "demo", externalRunId: report.id })));
+  const selected = ingested[ingested.length - 1];
+  res.json({ ok: true, scenario: "demo-pack", runs: ingested.map(publicRun), run: publicRun(selected), preview: preview(selected) });
 });
 createStorage().then(async configuredStorage => {
   storage = configuredStorage;
@@ -318,7 +346,7 @@ createStorage().then(async configuredStorage => {
   // The first row is newest because storage loads groups by updated_at DESC.
   state.groups.forEach(group => { if (!groups.has(group.signature)) groups.set(group.signature, group); });
   app.listen(Number(process.env.PORT) || 3000, () => console.log(`Automation Failure Intelligence running on http://localhost:${Number(process.env.PORT) || 3000}`));
-}).catch(error => { console.error("Storage startup failed; using in-memory storage:", error); storage = { persistent: false, load: async () => ({ runs: [], groups: [] }), saveRun: async () => undefined, saveGroup: async () => undefined }; app.listen(Number(process.env.PORT) || 3000, () => console.log("Automation Failure Intelligence running without persistent storage.")); });
+}).catch(error => { console.error("Storage startup failed; using in-memory storage:", error); storage = { persistent: false, load: async () => ({ runs: [], groups: [] }), saveRun: async () => undefined, saveGroup: async () => undefined, deleteRun: async () => undefined, deleteGroup: async () => undefined }; app.listen(Number(process.env.PORT) || 3000, () => console.log("Automation Failure Intelligence running without persistent storage.")); });
 
 
 
