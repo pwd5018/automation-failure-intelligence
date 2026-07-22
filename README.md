@@ -26,7 +26,7 @@ The current model is intentionally simple and truthful:
 
 ## Dashboard demos
 
-The dashboard has one mixed demo report with unique test names and passed, failed, error, and skipped results. The dashboard loads it automatically and the `Load demo report` button reloads the same report.
+The dashboard loads four stable demo runs: a baseline mixed run, a clean pass, an expanded run with additional tests, and a shared-failure run that demonstrates grouping. The `Load demo runs` button loads or refreshes this pack without creating duplicate copies.
 
 The test suite includes a basic mock report and malformed-report coverage. Retry and parameterized scenarios are not simulated in the current dashboard.
 
@@ -43,7 +43,7 @@ For Vercel, the Supabase integration can provide `POSTGRES_URL` and related vari
 - `GET /api/test-runs` - list ingested runs; supports `status` and `q` filters.
 - `GET /api/health` - report storage mode and safe connection diagnostics.
 - `GET /api/failure-groups` - list confirmed failure groups.
-- `POST /api/demo/seed` - load the mixed demo report.
+- `POST /api/demo/seed` - load the stable demo-run pack.
 
 Authentication, deeper framework-specific adapters, normalized storage, and real Jira integration are future work.
 
