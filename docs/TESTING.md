@@ -4,6 +4,8 @@
 
 Run `npm test`. The suite builds TypeScript, starts the service, exercises the API, validates representative XML fixtures, and verifies malformed XML rejection.
 
+Use [GITHUB_WORKFLOW.md](GITHUB_WORKFLOW.md) to publish completed changes through the remote GitHub branch and Vercel workflow.
+
 ## Required coverage
 
 - Passed, failed, error, and skipped records.
