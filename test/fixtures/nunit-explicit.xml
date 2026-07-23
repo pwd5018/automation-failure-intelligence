@@ -1,0 +1,2 @@
+<?xml version="1.0"?>
+<testsuites framework="nunit" name="NUnit run"><testsuite name="NUnit.Tests"><testcase classname="NUnit.Tests.Calculator" name="adds numbers"/></testsuite></testsuites>

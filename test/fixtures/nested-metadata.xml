@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<testsuites name="Nightly browser suite" tests="3" failures="1" errors="0" skipped="1" time="1.23">
+  <properties>
+    <property name="framework" value="example-junit"/>
+    <property name="commit" value="abc123"/>
+  </properties>
+  <testsuite name="Checkout" classname="CheckoutSuite">
+    <testcase name="loads cart" classname="CartTest" time="0.10"/>
+    <testsuite name="Chrome">
+      <testcase name="submits order retry 1" classname="CheckoutTest">
+        <failure message="checkout failed">checkout failed at checkout.ts:10</failure>
+      </testcase>
+    </testsuite>
+  </testsuite>
+</testsuites>

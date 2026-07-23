@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<testsuites framework="pytest" name="pytest checkout run" tests="2" failures="0">
+  <testsuite name="test_checkout.py::TestCheckout">
+    <testcase classname="test_checkout.TestCheckout" name="test_guest_checkout[chrome]" time="0.21"/>
+    <testcase classname="test_checkout.TestCheckout" name="test_guest_checkout[firefox]" time="0.24"/>
+  </testsuite>
+</testsuites>

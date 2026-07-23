@@ -1,0 +1,2 @@
+<?xml version="1.0"?>
+<testsuites framework="cypress" name="Cypress run"><testsuite name="checkout.cy.ts"><testcase classname="checkout.cy.ts" name="guest checkout"/></testsuite></testsuites>

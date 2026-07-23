@@ -140,16 +140,115 @@ test("storage supports the Vercel Postgres variable names", async () => {
 
 test("mock report pack covers the main raw JUnit shapes", async () => {
   const cases = [
-    ["basic-outcomes.xml", 5, 2, 1, 1]
+    ["basic-outcomes.xml", 5, 2, 1, 1, 1],
+    ["parameterized.xml", 2, 0, 2, 0, 0],
+    ["parameterized-rows.xml", 3, 1, 1, 1, 0]
   ] as const;
-  for (const [name, total, passed, failed, skipped] of cases) {
+  for (const [name, total, passed, failed, skipped, errors] of cases) {
     const result = await (await uploadXml(await readFile(fixture(name), "utf8"))).json() as any;
     assert.equal(result.preview.summary.logicalTests, total, name);
     assert.equal(result.preview.summary.passed, passed, name);
     assert.equal(result.preview.summary.failed, failed, name);
-    assert.equal(result.preview.summary.errors, 1, name);
+    assert.equal(result.preview.summary.errors, errors, name);
     assert.equal(result.preview.summary.skipped, skipped, name);
     assert.equal(result.preview.summary.retryCount, 0, name);
   }
 });
 
+test("nested suites and report metadata are preserved without retry inference", async () => {
+  const result = await (await uploadXml(await readFile(fixture("nested-metadata.xml"), "utf8"))).json() as any;
+  assert.equal(result.preview.summary.rawTestcaseRecords, 2);
+  assert.equal(result.preview.summary.logicalTests, 2);
+  assert.equal(result.preview.summary.passed, 1);
+  assert.equal(result.preview.summary.failed, 1);
+  assert.equal(result.preview.reportMetadata.name, "Nightly browser suite");
+  assert.deepEqual(result.preview.reportMetadata.properties, { framework: "example-junit", commit: "abc123" });
+  assert.equal(result.run.logicalTests[0].suite, "Checkout");
+  assert.equal(result.run.logicalTests[1].suite, "Checkout / Chrome");
+  assert.equal(result.run.logicalTests[1].name, "submits order retry 1");
+  assert.equal(result.run.logicalTests[1].retryCount, 0);
+  assert.equal(result.run.logicalTests[1].flaky, false);
+});
+
+test("valid empty reports are accepted with an explicit warning", async () => {
+  const result = await (await uploadXml("<?xml version=\"1.0\"?><testsuites name=\"Empty report\" tests=\"0\"/>", { externalRunId: "empty-report" })).json() as any;
+  assert.equal(result.preview.summary.rawTestcaseRecords, 0);
+  assert.equal(result.preview.summary.logicalTests, 0);
+  assert.equal(result.preview.resultStatus, "UNKNOWN");
+  assert.match(result.preview.warnings[0], /No testcase records/);
+  assert.equal(result.preview.reportMetadata.name, "Empty report");
+});
+
+test("known framework metadata selects an explicit adapter without changing statuses", async () => {
+  const pytest = await (await uploadXml(await readFile(fixture("pytest-explicit.xml"), "utf8"))).json() as any;
+  assert.equal(pytest.preview.adapter, "pytest");
+  assert.equal(pytest.preview.summary.passed, 2);
+  assert.equal(pytest.preview.summary.retryCount, 0);
+  assert.equal(pytest.preview.warnings.length, 0);
+
+  const surefire = await (await uploadXml(await readFile(fixture("surefire-explicit.xml"), "utf8"))).json() as any;
+  assert.equal(surefire.preview.adapter, "maven-surefire");
+  assert.equal(surefire.preview.summary.failed, 1);
+  assert.equal(surefire.preview.reportMetadata.properties.framework, "maven-surefire");
+  assert.equal(surefire.preview.summary.retryCount, 0);
+});
+
+test("all registered adapters require explicit metadata and preserve generic result semantics", async () => {
+  const cases = [
+    ["nunit-explicit.xml", "nunit"],
+    ["xunit-explicit.xml", "xunit"],
+    ["jest-explicit.xml", "jest"],
+    ["playwright-explicit.xml", "playwright"],
+    ["cypress-explicit.xml", "cypress"]
+  ] as const;
+  for (const [name, adapter] of cases) {
+    const result = await (await uploadXml(await readFile(fixture(name), "utf8"), { externalRunId: adapter })).json() as any;
+    assert.equal(result.preview.adapter, adapter, name);
+    assert.equal(result.preview.summary.logicalTests, 1, name);
+    assert.equal(result.preview.summary.passed, 1, name);
+    assert.equal(result.preview.summary.retryCount, 0, name);
+    assert.equal(result.preview.warnings.length, 0, name);
+  }
+});
+
+test("root framework metadata takes precedence over a conflicting property", async () => {
+  const xml = "<?xml version=\"1.0\"?><testsuites framework=\"pytest\"><properties><property name=\"framework\" value=\"jest\"/></properties><testsuite name=\"Conflict\"><testcase name=\"one\"/></testsuite></testsuites>";
+  const result = await (await uploadXml(xml, { externalRunId: "framework-precedence" })).json() as any;
+  assert.equal(result.preview.adapter, "pytest");
+  assert.equal(result.preview.reportMetadata.framework, "pytest");
+  assert.equal(result.preview.reportMetadata.properties.framework, "jest");
+});
+
+test("unknown explicit framework metadata stays generic and explains the fallback", async () => {
+  const xml = "<?xml version=\"1.0\"?><testsuites framework=\"custom-runner\"><testsuite name=\"Custom\"><testcase name=\"one\"/></testsuite></testsuites>";
+  const result = await (await uploadXml(xml, { externalRunId: "unknown-framework" })).json() as any;
+  assert.equal(result.preview.adapter, "junit-generic");
+  assert.match(result.preview.warnings[0], /Explicit framework metadata 'custom-runner'/);
+  assert.equal(result.preview.summary.passed, 1);
+});
+
+test("larger reports retain every record, order, and source outcome", async () => {
+  const result = await (await uploadXml(await readFile(fixture("large-report.xml"), "utf8"), { externalRunId: "large-report" })).json() as any;
+  assert.equal(result.preview.summary.rawTestcaseRecords, 34);
+  assert.equal(result.preview.summary.logicalTests, 34);
+  assert.equal(result.preview.summary.passed, 30);
+  assert.equal(result.preview.summary.failed, 2);
+  assert.equal(result.preview.summary.errors, 1);
+  assert.equal(result.preview.summary.skipped, 1);
+  assert.equal(result.run.rawRecords.length, 34);
+  assert.equal(result.run.rawRecords[0].order, 1);
+  assert.equal(result.run.rawRecords[33].order, 34);
+  assert.equal(result.run.rawRecords[30].rawStatus, "FAILED");
+  assert.equal(result.run.rawRecords[31].rawStatus, "ERROR");
+  assert.match(result.preview.warnings[0], /Repeated test identities/);
+  assert.equal(result.preview.summary.retryCount, 0);
+});
+
+test("dashboard source renders adapter and report metadata fields", async () => {
+  const dashboard = await readFile(path.join(process.cwd(), "public", "index.html"), "utf8");
+  assert.match(dashboard, /reportMetadata/);
+  assert.match(dashboard, /metadata-label/);
+  assert.match(dashboard, /Adapter/);
+  assert.match(dashboard, /Properties/);
+  assert.match(dashboard, /run\.warnings/);
+});

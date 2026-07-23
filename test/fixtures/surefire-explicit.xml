@@ -1,0 +1,11 @@
+<?xml version="1.0"?>
+<testsuites name="Maven test run" tests="1" failures="1">
+  <properties>
+    <property name="framework" value="maven-surefire"/>
+  </properties>
+  <testsuite name="com.example.CheckoutTest" tests="1" failures="1">
+    <testcase classname="com.example.CheckoutTest" name="submitsOrder" time="0.31">
+      <failure message="order rejected">order rejected at CheckoutTest.java:42</failure>
+    </testcase>
+  </testsuite>
+</testsuites>
