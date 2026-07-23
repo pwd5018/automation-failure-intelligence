@@ -1,0 +1,39 @@
+<?xml version="1.0"?>
+<testsuites name="Large nightly report" tests="32" failures="2" errors="1" skipped="2">
+  <testsuite name="Regression" tests="32">
+    <testcase classname="SmokeTest" name="test_001" time="0.01"/>
+    <testcase classname="SmokeTest" name="test_002" time="0.01"/>
+    <testcase classname="SmokeTest" name="test_003" time="0.01"/>
+    <testcase classname="SmokeTest" name="test_004" time="0.01"/>
+    <testcase classname="SmokeTest" name="test_005" time="0.01"/>
+    <testcase classname="SmokeTest" name="test_006" time="0.01"/>
+    <testcase classname="SmokeTest" name="test_007" time="0.01"/>
+    <testcase classname="SmokeTest" name="test_008" time="0.01"/>
+    <testcase classname="SmokeTest" name="test_009" time="0.01"/>
+    <testcase classname="SmokeTest" name="test_010" time="0.01"/>
+    <testcase classname="SmokeTest" name="test_011" time="0.01"/>
+    <testcase classname="SmokeTest" name="test_012" time="0.01"/>
+    <testcase classname="SmokeTest" name="test_013" time="0.01"/>
+    <testcase classname="SmokeTest" name="test_014" time="0.01"/>
+    <testcase classname="SmokeTest" name="test_015" time="0.01"/>
+    <testcase classname="SmokeTest" name="test_016" time="0.01"/>
+    <testcase classname="SmokeTest" name="test_017" time="0.01"/>
+    <testcase classname="SmokeTest" name="test_018" time="0.01"/>
+    <testcase classname="SmokeTest" name="test_019" time="0.01"/>
+    <testcase classname="SmokeTest" name="test_020" time="0.01"/>
+    <testcase classname="SmokeTest" name="test_021" time="0.01"/>
+    <testcase classname="SmokeTest" name="test_022" time="0.01"/>
+    <testcase classname="SmokeTest" name="test_023" time="0.01"/>
+    <testcase classname="SmokeTest" name="test_024" time="0.01"/>
+    <testcase classname="SmokeTest" name="test_025" time="0.01"/>
+    <testcase classname="SmokeTest" name="test_026" time="0.01"/>
+    <testcase classname="SmokeTest" name="test_027" time="0.01"/>
+    <testcase classname="SmokeTest" name="test_028" time="0.01"/>
+    <testcase classname="SmokeTest" name="test_029" time="0.01"/>
+    <testcase classname="SmokeTest" name="test_030" time="0.01"/>
+    <testcase classname="SmokeTest" name="test_031" time="0.01"><failure message="assertion failed">assertion failed at suite.ts:31</failure></testcase>
+    <testcase classname="SmokeTest" name="test_032" time="0.01"><error message="environment unavailable">environment unavailable at runner.ts:32</error></testcase>
+    <testcase classname="SmokeTest" name="test_001" time="0.01"><failure message="assertion failed">assertion failed at suite.ts:31</failure></testcase>
+    <testcase classname="SmokeTest" name="test_002" parameters="repeat=1" time="0.01"><skipped message="excluded"/></testcase>
+  </testsuite>
+</testsuites>
