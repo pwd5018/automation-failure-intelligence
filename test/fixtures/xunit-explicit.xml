@@ -1,0 +1,2 @@
+<?xml version="1.0"?>
+<testsuites name="xUnit run"><properties><property name="framework" value="xunit"/></properties><testsuite name="Calculator"><testcase classname="CalculatorTests" name="adds numbers"/></testsuite></testsuites>
