@@ -28,7 +28,7 @@ The current model is intentionally simple and truthful:
 
 The dashboard loads four stable demo runs: a baseline mixed run, a clean pass, an expanded run with additional tests, and a shared-failure run that demonstrates grouping. The `Load demo runs` button loads or refreshes this pack without creating duplicate copies.
 
-The test suite includes a basic mock report and malformed-report coverage. Retry and parameterized scenarios are not simulated in the current dashboard.
+The test suite includes malformed, parameterized, nested, empty, large-report, and explicit framework-adapter fixtures. The dashboard reports source statuses directly and does not infer retries from status sequences.
 
 ## Persistence
 
@@ -45,5 +45,4 @@ For Vercel, the Supabase integration can provide `POSTGRES_URL` and related vari
 - `GET /api/failure-groups` - list confirmed failure groups.
 - `POST /api/demo/seed` - load the stable demo-run pack.
 
-Authentication, deeper framework-specific adapters, normalized storage, and real Jira integration are future work.
-
+Authentication, deeper framework-specific result transformations, normalized storage, and real Jira integration are future work. Current framework adapters identify only explicitly declared report metadata; they do not infer framework behavior.
