@@ -70,3 +70,5 @@ Current implementation slice:
 ## Validation gate
 
 Every phase must pass `npm test`, fixture validation, and a Vercel smoke test. The smoke test checks `/api/health`, loads the demo, refreshes, redeploys, and confirms stored runs remain available.
+
+The remote-first publishing procedure is documented in [docs/GITHUB_WORKFLOW.md](docs/GITHUB_WORKFLOW.md). Phase work should be transferred to GitHub and merged into `main` through a focused pull request before the phase is considered delivered.
