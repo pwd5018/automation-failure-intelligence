@@ -47,6 +47,16 @@ type LogicalTest = {
   flaky: boolean;
   recoveredAfterRetry: boolean;
 };
+type ReportMetadata = {
+  framework?: string;
+  name?: string;
+  tests?: string;
+  failures?: string;
+  errors?: string;
+  skipped?: string;
+  time?: string;
+  properties: Record<string, string>;
+};
 type Summary = {
   rawTestcaseRecords: number;
   logicalTests: number;
@@ -73,6 +83,7 @@ type TestRun = {
   skippedLogicalTestPolicy: SkippedPolicy;
   ingestedAt: string;
   rawReport: string;
+  reportMetadata: ReportMetadata;
   warnings: string[];
   rawRecords: RawRecord[];
   logicalTests: LogicalTest[];
@@ -105,7 +116,8 @@ type FailureGroup = {
 };
 
 const app = express();
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
+const maxReportBytes = 10 * 1024 * 1024;
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: maxReportBytes } });
 const runs = new Map<string, TestRun>();
 const groups = new Map<string, FailureGroup>();
 const retryConfigs = new Map<string, RetryConfig>();
@@ -123,7 +135,6 @@ function statusValue(status: RawStatus): Status { return status.toLowerCase() as
 function profile(value: unknown): RetryProfile { return value === "SKIPPED_THEN_TERMINAL_IS_RETRY" ? value : "NORMAL_SKIPPED_SEMANTICS"; }
 function skippedPolicy(value: unknown): SkippedPolicy { return value === "EXCLUDE_FROM_LOGICAL_TOTALS" ? value : "COUNT_AS_SKIPPED"; }
 function failureOf(test: any): { message: string; stack: string } | undefined { const failure = test.failure ?? test.error; if (failure === undefined) return undefined; const message = text(failure["@_message"] || failure["#text"] || "Automated test failure"); return { message, stack: text(failure["#text"] || message) }; }
-function cleanName(value: string): string { return value.replace(/\s*\(?retry\s*\d+\)?\s*$/i, "").replace(/\s+#\d+\s*$/, "").trim(); }
 function signature(message: string, stack: string): string { return crypto.createHash("sha256").update(`${normalize(message)}|${normalize(stack).split(" at ")[0]}`).digest("hex").slice(0, 16); }
 
 function getConfig(metadata: Record<string, any>): RetryConfig {
@@ -173,35 +184,89 @@ function summarize(logicalTests: LogicalTest[], rawRecords: RawRecord[]): Summar
   };
 }
 
+function reportMetadataOf(root: any): ReportMetadata {
+  const properties: Record<string, string> = {};
+  for (const property of asArray(root?.properties?.property)) {
+    const name = text(property?.["@_name"]);
+    if (name) properties[name] = text(property?.["@_value"] || property?.["#text"]);
+  }
+  return {
+    ...((root?.["@_framework"] || root?.["@_frameworkName"] || root?.["@_producer"] || root?.["@_generator"]) ? { framework: text(root["@_framework"] || root["@_frameworkName"] || root["@_producer"] || root["@_generator"]) } : {}),
+    ...(root?.["@_name"] ? { name: text(root["@_name"]) } : {}),
+    ...(root?.["@_tests"] ? { tests: text(root["@_tests"]) } : {}),
+    ...(root?.["@_failures"] ? { failures: text(root["@_failures"]) } : {}),
+    ...(root?.["@_errors"] ? { errors: text(root["@_errors"]) } : {}),
+    ...(root?.["@_skipped"] ? { skipped: text(root["@_skipped"]) } : {}),
+    ...(root?.["@_time"] ? { time: text(root["@_time"]) } : {}),
+    properties
+  };
+}
+
+type AdapterId = "junit-generic" | "pytest" | "maven-surefire" | "nunit" | "xunit" | "jest" | "playwright" | "cypress";
+const explicitFrameworkPropertyNames = new Set(["framework", "framework.name", "test.framework", "reporter", "generator", "producer"]);
+
+function adapterFor(reportMetadata: ReportMetadata): { id: AdapterId; warning?: string } {
+  const explicit = reportMetadata.framework || Object.entries(reportMetadata.properties).find(([name]) => explicitFrameworkPropertyNames.has(name.toLowerCase()))?.[1];
+  if (!explicit) return { id: "junit-generic" };
+  const value = explicit.toLowerCase();
+  const known: Array<[string, AdapterId]> = [
+    ["surefire", "maven-surefire"],
+    ["pytest", "pytest"],
+    ["nunit", "nunit"],
+    ["xunit", "xunit"],
+    ["jest", "jest"],
+    ["playwright", "playwright"],
+    ["cypress", "cypress"]
+  ];
+  const match = known.find(([marker]) => value.includes(marker));
+  if (match) return { id: match[1] };
+  return { id: "junit-generic", warning: `Explicit framework metadata '${explicit}' was reported, but no specialized adapter is registered; generic JUnit semantics were used.` };
+}
+
 function parseJUnit(xml: string, metadata: Record<string, any>): TestRun {
   const validation = XMLValidator.validate(xml);
   if (validation !== true) throw new Error(`Malformed XML: ${validation.err.msg}`);
   const config = getConfig(metadata);
   const parsed = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: "@_", textNodeName: "#text", isArray: (_name, jpath) => String(jpath).endsWith("testcase") }).parse(xml);
-  const suites = parsed.testsuites?.testsuite ? asArray(parsed.testsuites.testsuite) : parsed.testsuite ? asArray(parsed.testsuite) : [];
+  const root = parsed.testsuites || parsed.testsuite || {};
+  const suites = parsed.testsuites?.testsuite ? asArray(parsed.testsuites.testsuite) : parsed.testsuite ? [parsed.testsuite] : [];
   const rawRecords: RawRecord[] = [];
   let order = 0;
-  for (const suite of suites) for (const test of asArray(suite.testcase)) {
+  const visitSuite = (suite: any, parentPath: string[] = []): void => {
+    const suiteName = text(suite?.["@_name"] || "Unnamed suite");
+    const suitePath = [...parentPath, suiteName];
+    for (const test of asArray(suite?.testcase)) {
     const rawName = text(test["@_name"] || "Unnamed test");
-    const testName = cleanName(rawName);
-    const suiteName = text(suite["@_name"] || "Unnamed suite");
+    const testName = rawName;
     const className = text(test["@_classname"] || suite["@_classname"] || "");
     const parameters = text(test["@_parameters"] || test["@_param"] || test["@_parameterId"] || test["@_dataProviderRowId"] || test["@_invocationId"] || test["@_browser"] || test["@_device"] || test["@_region"] || test["@_datasetId"] || "");
     const failure = failureOf(test);
-    rawRecords.push({ id: `raw_${++order}`, order, suite: suiteName, className, testName, identity: [suiteName, className, testName, parameters].map(normalize).join("|"), parameters: parameters || undefined, rawStatus: statusOf(test), message: failure?.message, stackTrace: failure?.stack, duration: text(test["@_time"]) || undefined, timestamp: new Date().toISOString() });
-  }
+    rawRecords.push({ id: `raw_${++order}`, order, suite: suitePath.join(" / "), className, testName, identity: [suitePath.join(" / "), className, testName, parameters].map(normalize).join("|"), parameters: parameters || undefined, rawStatus: statusOf(test), message: failure?.message, stackTrace: failure?.stack, duration: text(test["@_time"]) || undefined, timestamp: new Date().toISOString() });
+    }
+    for (const child of asArray(suite?.testsuite)) visitSuite(child, suitePath);
+  };
+  for (const suite of suites) visitSuite(suite);
+  const reportMetadata = reportMetadataOf(root);
+  const adapter = adapterFor(reportMetadata);
 
   const logicalTests: LogicalTest[] = [];
   const warnings: string[] = [];
+  if (adapter.warning) warnings.push(adapter.warning);
   for (const current of rawRecords) {
     const logical = makeLogical([current], false, "COUNT_AS_SKIPPED");
     if (logical) logicalTests.push(logical);
   }
   const summary = summarize(logicalTests, rawRecords);
   if (rawRecords.length === 0) warnings.push("No testcase records were found in the report.");
-  if (rawRecords.some((record, index) => rawRecords.slice(0, index).some(previous => previous.identity === record.identity))) warnings.push("Repeated test identities are shown as separate reported results; no retry inference is applied.");
+  const identities = new Set<string>();
+  const hasRepeatedIdentity = rawRecords.some(record => {
+    if (identities.has(record.identity)) return true;
+    identities.add(record.identity);
+    return false;
+  });
+  if (hasRepeatedIdentity) warnings.push("Repeated test identities are shown as separate reported results; no retry inference is applied.");
   const id = `run_${crypto.createHash("sha256").update(`${metadata.externalRunId || ""}|${xml}`).digest("hex").slice(0, 16)}`;
-  return { id, projectId: config.projectId, build: text(metadata.build || "local"), environment: text(metadata.environment || "default"), adapter: "junit-generic", adapterVersion: "0.4.0", configurationVersion: config.version, retryAnalyzerEnabled: config.retryAnalyzerEnabled, maxRetries: config.maxRetries, retryReportingProfile: config.skippedSequencePolicy, skippedLogicalTestPolicy: config.ordinarySkippedPolicy, ingestedAt: new Date().toISOString(), rawReport: xml, warnings, rawRecords, logicalTests, summary, resultStatus: summary.failed || summary.errors ? "FAILED" : rawRecords.length ? "PASSED" : "UNKNOWN", processingStatus: warnings.length ? "WARNING" : "COMPLETE" };
+  return { id, projectId: config.projectId, build: text(metadata.build || "local"), environment: text(metadata.environment || "default"), adapter: adapter.id, adapterVersion: "0.6.0", configurationVersion: config.version, retryAnalyzerEnabled: config.retryAnalyzerEnabled, maxRetries: config.maxRetries, retryReportingProfile: config.skippedSequencePolicy, skippedLogicalTestPolicy: config.ordinarySkippedPolicy, ingestedAt: new Date().toISOString(), rawReport: xml, reportMetadata, warnings, rawRecords, logicalTests, summary, resultStatus: summary.failed || summary.errors ? "FAILED" : rawRecords.length ? "PASSED" : "UNKNOWN", processingStatus: warnings.length ? "WARNING" : "COMPLETE" };
 }
 
 function addFailureGroup(run: TestRun, test: LogicalTest): void {
@@ -237,7 +302,7 @@ async function ingest(run: TestRun): Promise<TestRun> {
   return run;
 }
 function publicRun(run: TestRun): Omit<TestRun, "rawReport"> { const { rawReport: _rawReport, ...safe } = run; return safe; }
-function preview(run: TestRun) { return { runId: run.id, projectId: run.projectId, build: run.build, environment: run.environment, retryAnalyzerEnabled: run.retryAnalyzerEnabled, maxRetries: run.maxRetries, retryReportingProfile: run.retryReportingProfile, warnings: run.warnings, summary: run.summary, resultStatus: run.resultStatus, processingStatus: run.processingStatus, logicalTests: run.logicalTests.map(test => ({ name: test.name, suite: test.suite, className: test.className, parameters: test.parameters, finalStatus: test.finalStatus, attempts: test.attempts.map(attempt => ({ attemptNumber: attempt.attemptNumber, rawStatus: attempt.rawStatus, status: attempt.status })), retryCount: test.retryCount, flaky: test.flaky, recoveredAfterRetry: test.recoveredAfterRetry })) }; }
+function preview(run: TestRun) { return { runId: run.id, projectId: run.projectId, build: run.build, environment: run.environment, adapter: run.adapter, adapterVersion: run.adapterVersion, reportMetadata: run.reportMetadata, retryAnalyzerEnabled: run.retryAnalyzerEnabled, maxRetries: run.maxRetries, retryReportingProfile: run.retryReportingProfile, warnings: run.warnings, summary: run.summary, resultStatus: run.resultStatus, processingStatus: run.processingStatus, logicalTests: run.logicalTests.map(test => ({ name: test.name, suite: test.suite, className: test.className, parameters: test.parameters, finalStatus: test.finalStatus, attempts: test.attempts.map(attempt => ({ attemptNumber: attempt.attemptNumber, rawStatus: attempt.rawStatus, status: attempt.status })), retryCount: test.retryCount, flaky: test.flaky, recoveredAfterRetry: test.recoveredAfterRetry })) }; }
 
 app.get("/api/retry-config", (req, res) => { const projectId = text(req.query.projectId || "default"); res.json(retryConfigs.get(projectId) ?? getConfig({ projectId })); });
 app.get("/api/health", (_req, res) => res.json({ ok: true, storage: storage.persistent ? "postgres" : "memory", storageVariable: storage.variable || null, storageError: storage.error || null }));
@@ -347,6 +412,5 @@ createStorage().then(async configuredStorage => {
   state.groups.forEach(group => { if (!groups.has(group.signature)) groups.set(group.signature, group); });
   app.listen(Number(process.env.PORT) || 3000, () => console.log(`Automation Failure Intelligence running on http://localhost:${Number(process.env.PORT) || 3000}`));
 }).catch(error => { console.error("Storage startup failed; using in-memory storage:", error); storage = { persistent: false, load: async () => ({ runs: [], groups: [] }), saveRun: async () => undefined, saveGroup: async () => undefined, deleteRun: async () => undefined, deleteGroup: async () => undefined }; app.listen(Number(process.env.PORT) || 3000, () => console.log("Automation Failure Intelligence running without persistent storage.")); });
-
 
 
