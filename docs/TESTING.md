@@ -7,6 +7,14 @@ Run `npm test`. The suite builds TypeScript, starts the service, exercises the A
 ## Required coverage
 
 - Passed, failed, error, and skipped records.
+- Parameterized rows retain their parameters as part of result identity.
+- Nested suites retain their suite path.
+- Report attributes and properties are exposed as metadata.
+- Valid empty reports return an explicit warning and an `UNKNOWN` result status.
+- Explicit pytest and Maven Surefire metadata select adapter labels; unknown declarations remain generic with a warning.
+- Larger reports retain complete record count and source order without retry inference.
+- The dashboard displays adapter identity, report metadata, properties, and parser warnings.
+- All registered adapters have explicit-metadata fixtures; root metadata precedence and unknown fallback are covered.
 - The current demo uses unique test names and does not simulate parameterized rows.
 - Run search and status filters.
 - Storage health reporting.
@@ -24,4 +32,3 @@ Run `npm test`. The suite builds TypeScript, starts the service, exercises the A
 6. Confirm the run and failure groups remain available.
 
 Never include database passwords or complete connection strings in bug reports.
-
