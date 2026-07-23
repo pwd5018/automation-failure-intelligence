@@ -1,0 +1,2 @@
+<?xml version="1.0"?>
+<testsuites name="Playwright run"><properties><property name="reporter" value="playwright"/></properties><testsuite name="checkout.spec.ts"><testcase classname="checkout.spec.ts" name="guest checkout"/></testsuite></testsuites>
