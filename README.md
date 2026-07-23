@@ -11,6 +11,8 @@ npm run dev
 
 Open http://localhost:3000. Run the regression suite with `npm test`.
 
+For the contribution and deployment workflow, see [docs/GITHUB_WORKFLOW.md](docs/GITHUB_WORKFLOW.md).
+
 ## Current behavior
 
 The current model is intentionally simple and truthful:
