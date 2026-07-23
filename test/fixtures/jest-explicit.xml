@@ -1,0 +1,2 @@
+<?xml version="1.0"?>
+<testsuites framework="jest" name="Jest run"><testsuite name="calculator.test.js"><testcase classname="calculator.test.js" name="adds numbers"/></testsuite></testsuites>
