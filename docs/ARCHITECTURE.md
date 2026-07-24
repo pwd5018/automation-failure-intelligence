@@ -22,4 +22,4 @@ The parser also exposes basic report attributes and `<properties>` values as met
 
 The current `afi_runs` and `afi_failure_groups` JSONB payloads remain intact during the Phase 4 transition. `afi_runs` now has additive normalized metadata columns, and `afi_test_results` stores the future relational source-record seam with indexes for run/order, run/identity, and run/status lookups.
 
-The normalized schema is intentionally additive. Subsequent Phase 4 slices will populate these columns and rows transactionally, then move reads behind the unchanged API contract after equivalence is demonstrated.
+The normalized schema is intentionally additive. New writes populate these columns and rows transactionally, and Postgres-backed reads now reconstruct testcase records and logical tests from normalized rows behind the unchanged API contract. Runs without normalized rows fall back to their stored JSONB payload for compatibility.
