@@ -155,7 +155,7 @@ export async function createStorage(): Promise<Storage> {
                 test_name, parameters, raw_status, message, stack_trace, duration,
                 reported_timestamp, raw_record)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
-            [record.id, run.id, record.order, record.id, record.identity, record.suite, record.className, record.testName, record.parameters || null, record.rawStatus, record.message || null, record.stackTrace || null, record.duration || null, record.timestamp, record]
+            [`${run.id}:${record.id}`, run.id, record.order, record.id, record.identity, record.suite, record.className, record.testName, record.parameters || null, record.rawStatus, record.message || null, record.stackTrace || null, record.duration || null, record.timestamp, record]
           );
         }
         await client.query("COMMIT");
