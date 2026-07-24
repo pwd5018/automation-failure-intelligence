@@ -32,6 +32,53 @@ function connectionStringForNode(value: string): string {
   }
 }
 
+const normalizedSchemaSql = `
+  -- Phase 4 is additive: the JSONB payload remains the compatibility and
+  -- provenance source while normalized columns and testcase rows are introduced.
+  ALTER TABLE afi_runs ADD COLUMN IF NOT EXISTS project_id TEXT;
+  ALTER TABLE afi_runs ADD COLUMN IF NOT EXISTS build TEXT;
+  ALTER TABLE afi_runs ADD COLUMN IF NOT EXISTS environment TEXT;
+  ALTER TABLE afi_runs ADD COLUMN IF NOT EXISTS adapter TEXT;
+  ALTER TABLE afi_runs ADD COLUMN IF NOT EXISTS adapter_version TEXT;
+  ALTER TABLE afi_runs ADD COLUMN IF NOT EXISTS result_status TEXT;
+  ALTER TABLE afi_runs ADD COLUMN IF NOT EXISTS processing_status TEXT;
+  ALTER TABLE afi_runs ADD COLUMN IF NOT EXISTS ingested_at TIMESTAMPTZ;
+  ALTER TABLE afi_runs ADD COLUMN IF NOT EXISTS raw_report TEXT;
+  ALTER TABLE afi_runs ADD COLUMN IF NOT EXISTS report_metadata JSONB;
+  ALTER TABLE afi_runs ADD COLUMN IF NOT EXISTS warnings JSONB;
+  ALTER TABLE afi_runs ADD COLUMN IF NOT EXISTS summary JSONB;
+
+  CREATE INDEX IF NOT EXISTS afi_runs_project_id_idx ON afi_runs (project_id);
+  CREATE INDEX IF NOT EXISTS afi_runs_result_status_idx ON afi_runs (result_status);
+  CREATE INDEX IF NOT EXISTS afi_runs_ingested_at_idx ON afi_runs (ingested_at DESC);
+
+  CREATE TABLE IF NOT EXISTS afi_test_results (
+    id TEXT PRIMARY KEY,
+    run_id TEXT NOT NULL REFERENCES afi_runs(id) ON DELETE CASCADE,
+    source_order INTEGER NOT NULL,
+    source_id TEXT NOT NULL,
+    identity TEXT NOT NULL,
+    suite TEXT NOT NULL,
+    class_name TEXT NOT NULL,
+    test_name TEXT NOT NULL,
+    parameters TEXT,
+    raw_status TEXT NOT NULL,
+    message TEXT,
+    stack_trace TEXT,
+    duration TEXT,
+    reported_timestamp TEXT NOT NULL,
+    raw_record JSONB NOT NULL,
+    UNIQUE (run_id, source_order)
+  );
+
+  CREATE INDEX IF NOT EXISTS afi_test_results_run_order_idx
+    ON afi_test_results (run_id, source_order);
+  CREATE INDEX IF NOT EXISTS afi_test_results_run_identity_idx
+    ON afi_test_results (run_id, identity);
+  CREATE INDEX IF NOT EXISTS afi_test_results_run_status_idx
+    ON afi_test_results (run_id, raw_status);
+`;
+
 export async function createStorage(): Promise<Storage> {
   const candidates = ["DATABASE_URL", "POSTGRES_URL", "POSTGRES_PRISMA_URL", "POSTGRES_URL_NON_POOLING"];
   const variable = candidates.find(name => Boolean(process.env[name]));
@@ -55,6 +102,7 @@ export async function createStorage(): Promise<Storage> {
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
     `);
+    await pool.query(normalizedSchemaSql);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown PostgreSQL initialization error";
     console.error(`PostgreSQL initialization failed using ${variable}; using in-memory storage:`, error);
@@ -78,4 +126,3 @@ export async function createStorage(): Promise<Storage> {
     deleteGroup: async id => { try { await pool.query("DELETE FROM afi_failure_groups WHERE id = $1", [id]); } catch (error) { console.error("Could not delete demo failure group:", error); } }
   };
 }
-
