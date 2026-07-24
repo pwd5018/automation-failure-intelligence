@@ -149,6 +149,9 @@ test("Phase 4 storage schema preserves normalized source-record seams", async ()
   assert.match(storageSource, /\$\{run\.id\}:\$\{record\.id\}/);
   assert.match(storageSource, /hydrateRunFromNormalizedRows/);
   assert.match(storageSource, /SELECT id, run_id, source_order/);
+  assert.match(storageSource, /jsonValue\(run\)/);
+  assert.match(storageSource, /jsonValue\(record\)/);
+  assert.match(storageSource, /jsonValue\(group\)/);
 });
 
 test("mock report pack covers the main raw JUnit shapes", async () => {
