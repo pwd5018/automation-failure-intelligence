@@ -277,3 +277,25 @@ test("persistent reads and dashboard bootstrap avoid stale instance state", asyn
   assert.match(dashboard, /async function boot\(\)/);
   assert.match(dashboard, /await demo\(\);await refreshRuns\(\);await refreshGroups\(\)/);
 });
+
+test("report quality exposes declared-count warnings without changing source results", async () => {
+  const response = await uploadXml(await readFile(fixture("quality-mismatch.xml"), "utf8"), { externalRunId: "quality-mismatch" });
+  const result = await response.json() as any;
+  assert.equal(response.status, 201);
+  assert.equal(result.preview.quality.status, "ACCEPTED_WITH_WARNINGS");
+  assert.ok(result.preview.quality.issues.some((issue: any) => issue.code === "DECLARED_TESTS_MISMATCH"));
+  assert.equal(result.preview.summary.logicalTests, 2);
+  assert.equal(result.preview.summary.passed, 2);
+  assert.equal(result.run.rawRecords.length, 2);
+});
+
+test("contract-breaking report quality issues are quarantined before ingestion", async () => {
+  const xml = "<?xml version=\"1.0\"?><testsuites><testsuite name=\"Quality\"><testcase classname=\"QualityTest\"/></testsuite></testsuites>";
+  const response = await uploadXml(xml, { externalRunId: "quality-missing-name" });
+  const result = await response.json() as any;
+  assert.equal(response.status, 422);
+  assert.equal(result.error, "Report was quarantined and was not ingested.");
+  assert.equal(result.quality.status, "QUARANTINED");
+  assert.ok(result.quality.issues.some((issue: any) => issue.code === "MISSING_TESTCASE_NAME"));
+  assert.equal(result.preview.summary.logicalTests, 1);
+});
