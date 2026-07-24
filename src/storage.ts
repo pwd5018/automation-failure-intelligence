@@ -33,6 +33,8 @@ function connectionStringForNode(value: string): string {
   }
 }
 
+function jsonValue(value: unknown): string { return JSON.stringify(value ?? null); }
+
 const normalizedSchemaSql = `
   -- Phase 4 is additive: the JSONB payload remains the compatibility and
   -- provenance source while normalized columns and testcase rows are introduced.
@@ -214,7 +216,7 @@ export async function createStorage(): Promise<Storage> {
              warnings = EXCLUDED.warnings,
              summary = EXCLUDED.summary,
              updated_at = NOW()`,
-          [run.id, run, run.projectId, run.build, run.environment, run.adapter, run.adapterVersion, run.resultStatus, run.processingStatus, run.ingestedAt, run.rawReport, run.reportMetadata, run.warnings, run.summary]
+          [run.id, jsonValue(run), run.projectId, run.build, run.environment, run.adapter, run.adapterVersion, run.resultStatus, run.processingStatus, run.ingestedAt, run.rawReport, jsonValue(run.reportMetadata), jsonValue(run.warnings), jsonValue(run.summary)]
         );
         await client.query("DELETE FROM afi_test_results WHERE run_id = $1", [run.id]);
         for (const record of run.rawRecords || []) {
@@ -224,7 +226,7 @@ export async function createStorage(): Promise<Storage> {
                 test_name, parameters, raw_status, message, stack_trace, duration,
                 reported_timestamp, raw_record)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
-            [`${run.id}:${record.id}`, run.id, record.order, record.id, record.identity, record.suite, record.className, record.testName, record.parameters || null, record.rawStatus, record.message || null, record.stackTrace || null, record.duration || null, record.timestamp, record]
+            [`${run.id}:${record.id}`, run.id, record.order, record.id, record.identity, record.suite, record.className, record.testName, record.parameters || null, record.rawStatus, record.message || null, record.stackTrace || null, record.duration || null, record.timestamp, jsonValue(record)]
           );
         }
         await client.query("COMMIT");
@@ -234,7 +236,7 @@ export async function createStorage(): Promise<Storage> {
       } finally {
         client.release();
       }
-    },    saveGroup: async group => { try { await pool.query("INSERT INTO afi_failure_groups (id, payload, updated_at) VALUES ($1, $2, NOW()) ON CONFLICT (id) DO UPDATE SET payload = EXCLUDED.payload, updated_at = NOW()", [group.id, group]); } catch (error) { console.error("Could not persist failure group:", error); } },
+    },    saveGroup: async group => { try { await pool.query("INSERT INTO afi_failure_groups (id, payload, updated_at) VALUES ($1, $2, NOW()) ON CONFLICT (id) DO UPDATE SET payload = EXCLUDED.payload, updated_at = NOW()", [group.id, jsonValue(group)]); } catch (error) { console.error("Could not persist failure group:", error); } },
     deleteRun: async id => { try { await pool.query("DELETE FROM afi_runs WHERE id = $1", [id]); } catch (error) { console.error("Could not delete demo run:", error); } },
     deleteGroup: async id => { try { await pool.query("DELETE FROM afi_failure_groups WHERE id = $1", [id]); } catch (error) { console.error("Could not delete demo failure group:", error); } }
   };
