@@ -17,7 +17,7 @@ The application is an Express service serving a responsive static dashboard.
 
 The summary exposes total, passed, failed, errors, and skipped counts. A run can be marked failed when it contains either failed tests or errors. No status sequence is interpreted as a retry.
 
-The parser also exposes basic report attributes and `<properties>` values as metadata. Empty but valid reports are accepted as `UNKNOWN` runs with a warning. Framework-specific interpretation remains outside the generic adapter.
+The parser also exposes basic report attributes and `<properties>` values as metadata. Empty but valid reports remain visible in preview as `UNKNOWN` with a quality quarantine; they are not persisted through the ingestion endpoint. Framework-specific interpretation remains outside the generic adapter.
 
 ## Storage
 
