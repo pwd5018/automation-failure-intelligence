@@ -15,7 +15,7 @@ Automation Failure Intelligence is a private QA-triage workspace for understandi
 - Phase 3 real-world JUnit compatibility is implemented locally: nested suites, report metadata, empty reports, parameterized fixtures, large reports, and all registered explicit adapter labels are covered.
 - Large-report coverage is active: upload size is explicit and repeated-identity detection is linear rather than quadratic.
 - The dashboard now surfaces adapter identity, declared report metadata, properties, and parser warnings for each selected run.
-- Phase 4 normalized persistence and read reconstruction are implemented on the remote `main` branch; final Vercel/Postgres validation remains.
+- Phase 4 normalized persistence and read reconstruction are implemented and validated on the remote `main` branch.
 
 ## Phases
 
@@ -53,13 +53,13 @@ Current implementation slice:
 - Remaining deployment gate: Vercel `/api/health` and persistence smoke test.
 - Do not infer retries from status sequences.
 
-### Phase 4 - Normalized database model (in progress)
+### Phase 4 - Normalized database model (implemented)
 
 - Add normalized run columns and indexed `afi_test_results` rows beside the existing JSONB payload.
 - Retain the original payload and XML provenance during the transition.
 - Dual-write normalized run/test-result records transactionally with run-scoped testcase IDs.
 - Reconstruct persisted run reads from normalized rows while retaining JSONB fallback for legacy runs.
-- Validate restart, multi-instance reads, and API-contract parity before phase closeout.
+- Validate restart, multi-instance reads, and API-contract parity. (Completed.)
 - Do not change parser semantics, result identity, or retry/flaky behavior.
 
 ### Deferred collaboration work
