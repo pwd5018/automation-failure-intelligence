@@ -121,9 +121,10 @@ export async function createStorage(): Promise<Storage> {
       return { runs: runRows.rows.map(row => row.payload), groups: groupRows.rows.map(row => row.payload) };
     },
     saveRun: async run => {
+      const client = await pool.connect();
       try {
-        await pool.query("BEGIN");
-        await pool.query(
+        await client.query("BEGIN");
+        await client.query(
           `INSERT INTO afi_runs
              (id, payload, project_id, build, environment, adapter, adapter_version,
               result_status, processing_status, ingested_at, raw_report,
@@ -146,9 +147,9 @@ export async function createStorage(): Promise<Storage> {
              updated_at = NOW()`,
           [run.id, run, run.projectId, run.build, run.environment, run.adapter, run.adapterVersion, run.resultStatus, run.processingStatus, run.ingestedAt, run.rawReport, run.reportMetadata, run.warnings, run.summary]
         );
-        await pool.query("DELETE FROM afi_test_results WHERE run_id = $1", [run.id]);
+        await client.query("DELETE FROM afi_test_results WHERE run_id = $1", [run.id]);
         for (const record of run.rawRecords || []) {
-          await pool.query(
+          await client.query(
             `INSERT INTO afi_test_results
                (id, run_id, source_order, source_id, identity, suite, class_name,
                 test_name, parameters, raw_status, message, stack_trace, duration,
@@ -157,13 +158,14 @@ export async function createStorage(): Promise<Storage> {
             [record.id, run.id, record.order, record.id, record.identity, record.suite, record.className, record.testName, record.parameters || null, record.rawStatus, record.message || null, record.stackTrace || null, record.duration || null, record.timestamp, record]
           );
         }
-        await pool.query("COMMIT");
+        await client.query("COMMIT");
       } catch (error) {
-        await pool.query("ROLLBACK").catch(() => undefined);
+        await client.query("ROLLBACK").catch(() => undefined);
         console.error("Could not persist normalized run:", error);
+      } finally {
+        client.release();
       }
-    },
-    saveGroup: async group => { try { await pool.query("INSERT INTO afi_failure_groups (id, payload, updated_at) VALUES ($1, $2, NOW()) ON CONFLICT (id) DO UPDATE SET payload = EXCLUDED.payload, updated_at = NOW()", [group.id, group]); } catch (error) { console.error("Could not persist failure group:", error); } },
+    },    saveGroup: async group => { try { await pool.query("INSERT INTO afi_failure_groups (id, payload, updated_at) VALUES ($1, $2, NOW()) ON CONFLICT (id) DO UPDATE SET payload = EXCLUDED.payload, updated_at = NOW()", [group.id, group]); } catch (error) { console.error("Could not persist failure group:", error); } },
     deleteRun: async id => { try { await pool.query("DELETE FROM afi_runs WHERE id = $1", [id]); } catch (error) { console.error("Could not delete demo run:", error); } },
     deleteGroup: async id => { try { await pool.query("DELETE FROM afi_failure_groups WHERE id = $1", [id]); } catch (error) { console.error("Could not delete demo failure group:", error); } }
   };
