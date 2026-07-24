@@ -138,6 +138,16 @@ test("storage supports the Vercel Postgres variable names", async () => {
   assert.match(storageSource, /rejectUnauthorized: false/);
 });
 
+test("Phase 4 storage schema preserves normalized source-record seams", async () => {
+  const storageSource = await readFile(path.join(process.cwd(), "src", "storage.ts"), "utf8");
+  assert.match(storageSource, /afi_test_results/);
+  assert.match(storageSource, /source_order/);
+  assert.match(storageSource, /raw_report/);
+  assert.match(storageSource, /BEGIN/);
+  assert.match(storageSource, /COMMIT/);
+  assert.match(storageSource, /ROLLBACK/);
+});
+
 test("mock report pack covers the main raw JUnit shapes", async () => {
   const cases = [
     ["basic-outcomes.xml", 5, 2, 1, 1, 1],
