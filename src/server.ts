@@ -319,7 +319,8 @@ async function refreshPersistentState(): Promise<void> {
 app.get("/api/retry-config", (req, res) => { const projectId = text(req.query.projectId || "default"); res.json(retryConfigs.get(projectId) ?? getConfig({ projectId })); });
 app.get("/api/health", (_req, res) => res.json({ ok: true, storage: storage.persistent ? "postgres" : "memory", storageVariable: storage.variable || null, storageError: storage.error || null }));
 app.put("/api/retry-config", (req, res) => { const projectId = text(req.body.projectId || "default"); const config: RetryConfig = { projectId, retryAnalyzerEnabled: false, maxRetries: 0, skippedSequencePolicy: "NORMAL_SKIPPED_SEMANTICS", ordinarySkippedPolicy: "COUNT_AS_SKIPPED", version: "raw-results-v1" }; retryConfigs.set(projectId, config); res.json(config); });
-app.get("/api/test-runs", async (req, res) => {\n  await refreshPersistentState();
+app.get("/api/test-runs", async (req, res) => {
+  await refreshPersistentState();
   const requestedStatus = text(req.query.status).trim().toUpperCase();
   const allowedStatuses = new Set(["PASSED", "FAILED", "ERROR", "SKIPPED"]);
   if (requestedStatus && !allowedStatuses.has(requestedStatus)) return res.status(400).json({ error: "status must be PASSED, FAILED, ERROR, or SKIPPED." });
@@ -334,7 +335,8 @@ app.get("/api/test-runs", async (req, res) => {\n  await refreshPersistentState(
 app.get("/api/test-runs/:id", async (req, res) => { await refreshPersistentState(); const run = runs.get(req.params.id); run ? res.json(publicRun(run)) : res.status(404).json({ error: "Test run not found" }); });
 app.post("/api/test-runs/preview", upload.single("file"), (req, res) => { if (!req.file) return res.status(400).json({ error: "Attach a JUnit XML file using the 'file' field." }); try { res.json(preview(parseJUnit(req.file.buffer.toString("utf8"), req.body))); } catch (error) { res.status(400).json({ error: error instanceof Error ? error.message : "Invalid JUnit XML" }); } });
 app.post("/api/test-runs", upload.single("file"), async (req, res) => { if (!req.file) return res.status(400).json({ error: "Attach a JUnit XML file using the 'file' field." }); try { const run = await ingest(parseJUnit(req.file.buffer.toString("utf8"), req.body)); res.status(201).json({ run: publicRun(run), preview: preview(run) }); } catch (error) { res.status(400).json({ error: error instanceof Error ? error.message : "Invalid JUnit XML" }); } });
-app.get("/api/failure-groups", async (req, res) => {\n  await refreshPersistentState();
+app.get("/api/failure-groups", async (req, res) => {
+  await refreshPersistentState();
   const runId = text(req.query.runId).trim();
   const outcome = text(req.query.outcome).trim().toUpperCase();
   const classification = text(req.query.classification).trim().toLowerCase();
@@ -360,7 +362,8 @@ app.get("/api/failure-groups", async (req, res) => {\n  await refreshPersistentS
   res.json(result);
 });
 app.get("/api/failure-groups/:id", async (req, res) => { await refreshPersistentState(); const group = [...groups.values()].find(item => item.id === req.params.id); group ? res.json(group) : res.status(404).json({ error: "Failure group not found" }); });
-app.patch("/api/failure-groups/:id", async (req, res) => {\n  await refreshPersistentState();
+app.patch("/api/failure-groups/:id", async (req, res) => {
+  await refreshPersistentState();
   const group = [...groups.values()].find(item => item.id === req.params.id);
   if (!group) return res.status(404).json({ error: "Failure group not found" });
   const classifications: Classification[] = ["product-defect", "test-defect", "environment-issue", "test-data-issue", "known-failure", "duplicate", "unknown"];
@@ -400,7 +403,8 @@ async function clearLegacyDemoData(): Promise<void> {
   }
 }
 
-app.post("/api/demo/seed", async (req, res) => {\n  await refreshPersistentState();
+app.post("/api/demo/seed", async (req, res) => {
+  await refreshPersistentState();
   const body = req.body || {};
   await clearLegacyDemoData();
   const reports = [
