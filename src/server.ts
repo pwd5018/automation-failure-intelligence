@@ -297,7 +297,7 @@ async function ingest(run: TestRun): Promise<TestRun> {
   if (existing) { existing.duplicate = true; return existing; }
   runs.set(run.id, run);
   run.logicalTests.filter(test => test.finalStatus === "failed" || test.finalStatus === "error").forEach(test => addFailureGroup(run, test));
-  await storage.saveRun(publicRun(run));
+  await storage.saveRun(run);
   for (const group of groups.values()) await storage.saveGroup(group);
   return run;
 }
