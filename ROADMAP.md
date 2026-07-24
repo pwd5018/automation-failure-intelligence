@@ -16,6 +16,7 @@ Automation Failure Intelligence is a private QA-triage workspace for understandi
 - Large-report coverage is active: upload size is explicit and repeated-identity detection is linear rather than quadratic.
 - The dashboard now surfaces adapter identity, declared report metadata, properties, and parser warnings for each selected run.
 - Phase 4 normalized persistence and read reconstruction are implemented and validated on the remote `main` branch.
+- Phase 5 Slice 1 is implemented on the report-quality branch: shared quality classification, declared-count warnings, repeated-identity warnings, and pre-ingestion quarantine for missing testcase names.
 
 ## Phases
 
@@ -66,7 +67,7 @@ Current implementation slice:
 
 Before accepting externally ingested reports, establish a clean and trustworthy report boundary:
 
-- Define report-quality checks for malformed, empty, incomplete, duplicate, and structurally ambiguous reports.
+- Define report-quality checks for malformed, empty, incomplete, duplicate, and structurally ambiguous reports. (Slice 1 adds shared quality statuses/issues and initial empty, missing-name, repeated-identity, and declared-count checks.)
 - Preserve source provenance and identify the external source, project, build, environment, and ingestion timestamp.
 - Surface actionable validation warnings without changing source XML semantics.
 - Quarantine or reject reports that cannot meet the stored-result contract.

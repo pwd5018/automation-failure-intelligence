@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<testsuites name="Declared mismatch" tests="3" failures="0" errors="0" skipped="0">
+  <testsuite name="Quality">
+    <testcase classname="QualityTest" name="one"/>
+    <testcase classname="QualityTest" name="two"/>
+  </testsuite>
+</testsuites>

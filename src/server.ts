@@ -4,6 +4,7 @@ import { XMLParser, XMLValidator } from "fast-xml-parser";
 import crypto from "node:crypto";
 import path from "node:path";
 import { createStorage, type Storage } from "./storage.js";
+import { evaluateReportQuality, type ReportQuality } from "./reportQuality.js";
 
 type RawStatus = "PASSED" | "FAILED" | "SKIPPED" | "ERROR" | "UNKNOWN";
 type Status = "passed" | "failed" | "skipped" | "error" | "unknown";
@@ -90,6 +91,7 @@ type TestRun = {
   summary: Summary;
   resultStatus: "PASSED" | "FAILED" | "UNKNOWN";
   processingStatus: "COMPLETE" | "WARNING";
+  quality: ReportQuality;
   duplicate?: boolean;
 };
 type FailureGroup = {
@@ -265,8 +267,10 @@ function parseJUnit(xml: string, metadata: Record<string, any>): TestRun {
     return false;
   });
   if (hasRepeatedIdentity) warnings.push("Repeated test identities are shown as separate reported results; no retry inference is applied.");
+  const quality = evaluateReportQuality({ rawRecords, reportMetadata, summary });
+  for (const issue of quality.issues) if (!warnings.includes(issue.message)) warnings.push(issue.message);
   const id = `run_${crypto.createHash("sha256").update(`${metadata.externalRunId || ""}|${xml}`).digest("hex").slice(0, 16)}`;
-  return { id, projectId: config.projectId, build: text(metadata.build || "local"), environment: text(metadata.environment || "default"), adapter: adapter.id, adapterVersion: "0.6.0", configurationVersion: config.version, retryAnalyzerEnabled: config.retryAnalyzerEnabled, maxRetries: config.maxRetries, retryReportingProfile: config.skippedSequencePolicy, skippedLogicalTestPolicy: config.ordinarySkippedPolicy, ingestedAt: new Date().toISOString(), rawReport: xml, reportMetadata, warnings, rawRecords, logicalTests, summary, resultStatus: summary.failed || summary.errors ? "FAILED" : rawRecords.length ? "PASSED" : "UNKNOWN", processingStatus: warnings.length ? "WARNING" : "COMPLETE" };
+  return { id, projectId: config.projectId, build: text(metadata.build || "local"), environment: text(metadata.environment || "default"), adapter: adapter.id, adapterVersion: "0.6.0", configurationVersion: config.version, retryAnalyzerEnabled: config.retryAnalyzerEnabled, maxRetries: config.maxRetries, retryReportingProfile: config.skippedSequencePolicy, skippedLogicalTestPolicy: config.ordinarySkippedPolicy, ingestedAt: new Date().toISOString(), rawReport: xml, reportMetadata, warnings, rawRecords, logicalTests, summary, quality, resultStatus: summary.failed || summary.errors ? "FAILED" : rawRecords.length ? "PASSED" : "UNKNOWN", processingStatus: warnings.length ? "WARNING" : "COMPLETE" };
 }
 
 function addFailureGroup(run: TestRun, test: LogicalTest): void {
@@ -302,7 +306,7 @@ async function ingest(run: TestRun): Promise<TestRun> {
   return run;
 }
 function publicRun(run: TestRun): Omit<TestRun, "rawReport"> { const { rawReport: _rawReport, ...safe } = run; return safe; }
-function preview(run: TestRun) { return { runId: run.id, projectId: run.projectId, build: run.build, environment: run.environment, adapter: run.adapter, adapterVersion: run.adapterVersion, reportMetadata: run.reportMetadata, retryAnalyzerEnabled: run.retryAnalyzerEnabled, maxRetries: run.maxRetries, retryReportingProfile: run.retryReportingProfile, warnings: run.warnings, summary: run.summary, resultStatus: run.resultStatus, processingStatus: run.processingStatus, logicalTests: run.logicalTests.map(test => ({ name: test.name, suite: test.suite, className: test.className, parameters: test.parameters, finalStatus: test.finalStatus, attempts: test.attempts.map(attempt => ({ attemptNumber: attempt.attemptNumber, rawStatus: attempt.rawStatus, status: attempt.status })), retryCount: test.retryCount, flaky: test.flaky, recoveredAfterRetry: test.recoveredAfterRetry })) }; }
+function preview(run: TestRun) { return { runId: run.id, projectId: run.projectId, build: run.build, environment: run.environment, adapter: run.adapter, adapterVersion: run.adapterVersion, reportMetadata: run.reportMetadata, retryAnalyzerEnabled: run.retryAnalyzerEnabled, maxRetries: run.maxRetries, retryReportingProfile: run.retryReportingProfile, quality: run.quality, warnings: run.warnings, summary: run.summary, resultStatus: run.resultStatus, processingStatus: run.processingStatus, logicalTests: run.logicalTests.map(test => ({ name: test.name, suite: test.suite, className: test.className, parameters: test.parameters, finalStatus: test.finalStatus, attempts: test.attempts.map(attempt => ({ attemptNumber: attempt.attemptNumber, rawStatus: attempt.rawStatus, status: attempt.status })), retryCount: test.retryCount, flaky: test.flaky, recoveredAfterRetry: test.recoveredAfterRetry })) }; }
 
 function applyStoredState(state: { runs: any[]; groups: any[] }): void {
   runs.clear();
@@ -334,7 +338,7 @@ app.get("/api/test-runs", async (req, res) => {
 });
 app.get("/api/test-runs/:id", async (req, res) => { await refreshPersistentState(); const run = runs.get(req.params.id); run ? res.json(publicRun(run)) : res.status(404).json({ error: "Test run not found" }); });
 app.post("/api/test-runs/preview", upload.single("file"), (req, res) => { if (!req.file) return res.status(400).json({ error: "Attach a JUnit XML file using the 'file' field." }); try { res.json(preview(parseJUnit(req.file.buffer.toString("utf8"), req.body))); } catch (error) { res.status(400).json({ error: error instanceof Error ? error.message : "Invalid JUnit XML" }); } });
-app.post("/api/test-runs", upload.single("file"), async (req, res) => { if (!req.file) return res.status(400).json({ error: "Attach a JUnit XML file using the 'file' field." }); try { const run = await ingest(parseJUnit(req.file.buffer.toString("utf8"), req.body)); res.status(201).json({ run: publicRun(run), preview: preview(run) }); } catch (error) { res.status(400).json({ error: error instanceof Error ? error.message : "Invalid JUnit XML" }); } });
+app.post("/api/test-runs", upload.single("file"), async (req, res) => { if (!req.file) return res.status(400).json({ error: "Attach a JUnit XML file using the 'file' field." }); try { const run = parseJUnit(req.file.buffer.toString("utf8"), req.body); if (run.quality.status === "QUARANTINED") return res.status(422).json({ error: "Report was quarantined and was not ingested.", quality: run.quality, preview: preview(run) }); const stored = await ingest(run); res.status(201).json({ run: publicRun(stored), preview: preview(stored) }); } catch (error) { res.status(400).json({ error: error instanceof Error ? error.message : "Invalid JUnit XML" }); } });
 app.get("/api/failure-groups", async (req, res) => {
   await refreshPersistentState();
   const runId = text(req.query.runId).trim();
