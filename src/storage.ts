@@ -1,4 +1,5 @@
 import { Pool } from "pg";
+import crypto from "node:crypto";
 
 type StoredState = {
   runs: any[];
@@ -79,6 +80,55 @@ const normalizedSchemaSql = `
     ON afi_test_results (run_id, raw_status);
 `;
 
+function hydrateRunFromNormalizedRows(runRow: any, resultRows: any[]): any {
+  const payload = runRow.payload || {};
+  const rawRecords = resultRows.map(row => ({
+    id: row.source_id,
+    order: row.source_order,
+    suite: row.suite,
+    className: row.class_name,
+    testName: row.test_name,
+    identity: row.identity,
+    ...(row.parameters == null ? {} : { parameters: row.parameters }),
+    rawStatus: row.raw_status,
+    ...(row.message == null ? {} : { message: row.message }),
+    ...(row.stack_trace == null ? {} : { stackTrace: row.stack_trace }),
+    ...(row.duration == null ? {} : { duration: row.duration }),
+    timestamp: row.reported_timestamp
+  }));
+  const logicalTests = rawRecords.map(record => ({
+    id: `test_${crypto.createHash("sha1").update(record.id).digest("hex").slice(0, 12)}`,
+    identity: record.identity,
+    name: record.testName,
+    suite: record.suite,
+    className: record.className,
+    ...(record.parameters === undefined ? {} : { parameters: record.parameters }),
+    attempts: [{ ...record, attemptNumber: 1, status: record.rawStatus.toLowerCase() }],
+    finalStatus: record.rawStatus.toLowerCase(),
+    retryCount: 0,
+    flaky: false,
+    recoveredAfterRetry: false
+  }));
+  return {
+    ...payload,
+    id: runRow.id,
+    projectId: runRow.project_id ?? payload.projectId,
+    build: runRow.build ?? payload.build,
+    environment: runRow.environment ?? payload.environment,
+    adapter: runRow.adapter ?? payload.adapter,
+    adapterVersion: runRow.adapter_version ?? payload.adapterVersion,
+    ingestedAt: runRow.ingested_at?.toISOString?.() ?? payload.ingestedAt,
+    rawReport: runRow.raw_report ?? payload.rawReport,
+    reportMetadata: runRow.report_metadata ?? payload.reportMetadata,
+    warnings: runRow.warnings ?? payload.warnings,
+    summary: runRow.summary ?? payload.summary,
+    resultStatus: runRow.result_status ?? payload.resultStatus,
+    processingStatus: runRow.processing_status ?? payload.processingStatus,
+    rawRecords,
+    logicalTests
+  };
+}
+
 export async function createStorage(): Promise<Storage> {
   const candidates = ["DATABASE_URL", "POSTGRES_URL", "POSTGRES_PRISMA_URL", "POSTGRES_URL_NON_POOLING"];
   const variable = candidates.find(name => Boolean(process.env[name]));
@@ -114,11 +164,30 @@ export async function createStorage(): Promise<Storage> {
     persistent: true,
     variable,
     load: async () => {
-      const [runRows, groupRows] = await Promise.all([
-        pool.query("SELECT payload FROM afi_runs ORDER BY updated_at DESC"),
+      const [runRows, resultRows, groupRows] = await Promise.all([
+        pool.query(`SELECT id, payload, project_id, build, environment, adapter, adapter_version,
+                           result_status, processing_status, ingested_at, raw_report,
+                           report_metadata, warnings, summary
+                    FROM afi_runs ORDER BY updated_at DESC`),
+        pool.query(`SELECT id, run_id, source_order, source_id, identity, suite, class_name,
+                           test_name, parameters, raw_status, message, stack_trace,
+                           duration, reported_timestamp
+                    FROM afi_test_results ORDER BY run_id, source_order`),
         pool.query("SELECT payload FROM afi_failure_groups ORDER BY updated_at DESC")
       ]);
-      return { runs: runRows.rows.map(row => row.payload), groups: groupRows.rows.map(row => row.payload) };
+      const resultsByRun = new Map<string, any[]>();
+      for (const row of resultRows.rows) {
+        const rows = resultsByRun.get(row.run_id) || [];
+        rows.push(row);
+        resultsByRun.set(row.run_id, rows);
+      }
+      return {
+        runs: runRows.rows.map(row => {
+          const normalizedRows = resultsByRun.get(row.id) || [];
+          return normalizedRows.length ? hydrateRunFromNormalizedRows(row, normalizedRows) : row.payload;
+        }),
+        groups: groupRows.rows.map(row => row.payload)
+      };
     },
     saveRun: async run => {
       const client = await pool.connect();
