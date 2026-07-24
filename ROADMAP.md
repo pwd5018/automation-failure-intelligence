@@ -62,6 +62,20 @@ Current implementation slice:
 - Validate restart, multi-instance reads, and API-contract parity. (Completed.)
 - Do not change parser semantics, result identity, or retry/flaky behavior.
 
+### Phase 5 - Report quality and ingestion readiness (planned)
+
+Before accepting externally ingested reports, establish a clean and trustworthy report boundary:
+
+- Define report-quality checks for malformed, empty, incomplete, duplicate, and structurally ambiguous reports.
+- Preserve source provenance and identify the external source, project, build, environment, and ingestion timestamp.
+- Surface actionable validation warnings without changing source XML semantics.
+- Quarantine or reject reports that cannot meet the stored-result contract.
+- Verify normalized JSONB/read parity across baseline, large, nested, parameterized, and explicit-adapter fixtures.
+- Add regression coverage for repeated uploads, concurrent ingestion, large reports, and persistence failures.
+- Keep manual upload as the controlled ingestion path until this phase closes.
+
+External CI/webhook ingestion begins only after the Phase 5 quality and validation gate passes.
+
 ### Deferred collaboration work
 
 - Authentication.
