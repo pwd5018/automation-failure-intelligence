@@ -263,3 +263,12 @@ test("dashboard source renders adapter and report metadata fields", async () => 
   assert.match(dashboard, /Properties/);
   assert.match(dashboard, /run\.warnings/);
 });
+
+test("persistent reads and dashboard bootstrap avoid stale instance state", async () => {
+  const serverSource = await readFile(path.join(process.cwd(), "src", "server.ts"), "utf8");
+  const dashboard = await readFile(path.join(process.cwd(), "public", "index.html"), "utf8");
+  assert.match(serverSource, /refreshPersistentState/);
+  assert.match(serverSource, /await refreshPersistentState\(\)/);
+  assert.match(dashboard, /async function boot\(\)/);
+  assert.match(dashboard, /await demo\(\);await refreshRuns\(\);await refreshGroups\(\)/);
+});
