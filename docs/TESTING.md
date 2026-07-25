@@ -25,6 +25,8 @@ Use [GITHUB_WORKFLOW.md](GITHUB_WORKFLOW.md) to publish completed changes throug
 - Normalized Postgres reads reconstruct persisted testcase rows while legacy JSONB-only runs remain readable.
 - Report quality exposes declared-count warnings without changing parsed results.
 - Contract-breaking missing testcase names are quarantined before ingestion and failure-group creation.
+- Ingested runs expose stable source provenance and normalized storage includes provenance columns.
+- The separate mobile Developer workspace provides health, provenance, quality warning, quarantine, and persisted-read verification without adding diagnostic controls to the product dashboard.
 - Repeated refreshes see the same persisted run history across application instances.
 - Single failed/error results do not appear as selected-run failure groups; shared signatures across multiple tests do.
 

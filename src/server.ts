@@ -70,6 +70,16 @@ type Summary = {
   retryCount: number;
   recoveredAfterRetry: number;
 };
+type Provenance = {
+  sourceType: string;
+  sourceName?: string;
+  externalRunId?: string;
+  contentHash: string;
+  projectId: string;
+  build: string;
+  environment: string;
+  ingestedAt: string;
+};
 type TestRun = {
   id: string;
   projectId: string;
@@ -83,6 +93,7 @@ type TestRun = {
   retryReportingProfile: RetryProfile;
   skippedLogicalTestPolicy: SkippedPolicy;
   ingestedAt: string;
+  provenance: Provenance;
   rawReport: string;
   reportMetadata: ReportMetadata;
   warnings: string[];
@@ -270,7 +281,21 @@ function parseJUnit(xml: string, metadata: Record<string, any>): TestRun {
   const quality = evaluateReportQuality({ rawRecords, reportMetadata, summary });
   for (const issue of quality.issues) if (!warnings.includes(issue.message)) warnings.push(issue.message);
   const id = `run_${crypto.createHash("sha256").update(`${metadata.externalRunId || ""}|${xml}`).digest("hex").slice(0, 16)}`;
-  return { id, projectId: config.projectId, build: text(metadata.build || "local"), environment: text(metadata.environment || "default"), adapter: adapter.id, adapterVersion: "0.6.0", configurationVersion: config.version, retryAnalyzerEnabled: config.retryAnalyzerEnabled, maxRetries: config.maxRetries, retryReportingProfile: config.skippedSequencePolicy, skippedLogicalTestPolicy: config.ordinarySkippedPolicy, ingestedAt: new Date().toISOString(), rawReport: xml, reportMetadata, warnings, rawRecords, logicalTests, summary, quality, resultStatus: summary.failed || summary.errors ? "FAILED" : rawRecords.length ? "PASSED" : "UNKNOWN", processingStatus: warnings.length ? "WARNING" : "COMPLETE" };
+  const projectId = config.projectId;
+  const build = text(metadata.build || "local");
+  const environment = text(metadata.environment || "default");
+  const ingestedAt = new Date().toISOString();
+  const provenance: Provenance = {
+    sourceType: text(metadata.sourceType || "manual-upload"),
+    ...(metadata.sourceName ? { sourceName: text(metadata.sourceName) } : {}),
+    ...(metadata.externalRunId ? { externalRunId: text(metadata.externalRunId) } : {}),
+    contentHash: crypto.createHash("sha256").update(xml).digest("hex"),
+    projectId,
+    build,
+    environment,
+    ingestedAt
+  };
+  return { id, projectId, build, environment, adapter: adapter.id, adapterVersion: "0.6.0", configurationVersion: config.version, retryAnalyzerEnabled: config.retryAnalyzerEnabled, maxRetries: config.maxRetries, retryReportingProfile: config.skippedSequencePolicy, skippedLogicalTestPolicy: config.ordinarySkippedPolicy, ingestedAt, provenance, rawReport: xml, reportMetadata, warnings, rawRecords, logicalTests, summary, quality, resultStatus: summary.failed || summary.errors ? "FAILED" : rawRecords.length ? "PASSED" : "UNKNOWN", processingStatus: warnings.length ? "WARNING" : "COMPLETE" };
 }
 
 function addFailureGroup(run: TestRun, test: LogicalTest): void {
@@ -306,7 +331,7 @@ async function ingest(run: TestRun): Promise<TestRun> {
   return run;
 }
 function publicRun(run: TestRun): Omit<TestRun, "rawReport"> { const { rawReport: _rawReport, ...safe } = run; return safe; }
-function preview(run: TestRun) { return { runId: run.id, projectId: run.projectId, build: run.build, environment: run.environment, adapter: run.adapter, adapterVersion: run.adapterVersion, reportMetadata: run.reportMetadata, retryAnalyzerEnabled: run.retryAnalyzerEnabled, maxRetries: run.maxRetries, retryReportingProfile: run.retryReportingProfile, quality: run.quality, warnings: run.warnings, summary: run.summary, resultStatus: run.resultStatus, processingStatus: run.processingStatus, logicalTests: run.logicalTests.map(test => ({ name: test.name, suite: test.suite, className: test.className, parameters: test.parameters, finalStatus: test.finalStatus, attempts: test.attempts.map(attempt => ({ attemptNumber: attempt.attemptNumber, rawStatus: attempt.rawStatus, status: attempt.status })), retryCount: test.retryCount, flaky: test.flaky, recoveredAfterRetry: test.recoveredAfterRetry })) }; }
+function preview(run: TestRun) { return { runId: run.id, projectId: run.projectId, build: run.build, environment: run.environment, adapter: run.adapter, adapterVersion: run.adapterVersion, reportMetadata: run.reportMetadata, retryAnalyzerEnabled: run.retryAnalyzerEnabled, maxRetries: run.maxRetries, retryReportingProfile: run.retryReportingProfile, provenance: run.provenance, quality: run.quality, warnings: run.warnings, summary: run.summary, resultStatus: run.resultStatus, processingStatus: run.processingStatus, logicalTests: run.logicalTests.map(test => ({ name: test.name, suite: test.suite, className: test.className, parameters: test.parameters, finalStatus: test.finalStatus, attempts: test.attempts.map(attempt => ({ attemptNumber: attempt.attemptNumber, rawStatus: attempt.rawStatus, status: attempt.status })), retryCount: test.retryCount, flaky: test.flaky, recoveredAfterRetry: test.recoveredAfterRetry })) }; }
 
 function applyStoredState(state: { runs: any[]; groups: any[] }): void {
   runs.clear();
@@ -338,7 +363,7 @@ app.get("/api/test-runs", async (req, res) => {
 });
 app.get("/api/test-runs/:id", async (req, res) => { await refreshPersistentState(); const run = runs.get(req.params.id); run ? res.json(publicRun(run)) : res.status(404).json({ error: "Test run not found" }); });
 app.post("/api/test-runs/preview", upload.single("file"), (req, res) => { if (!req.file) return res.status(400).json({ error: "Attach a JUnit XML file using the 'file' field." }); try { res.json(preview(parseJUnit(req.file.buffer.toString("utf8"), req.body))); } catch (error) { res.status(400).json({ error: error instanceof Error ? error.message : "Invalid JUnit XML" }); } });
-app.post("/api/test-runs", upload.single("file"), async (req, res) => { if (!req.file) return res.status(400).json({ error: "Attach a JUnit XML file using the 'file' field." }); try { const run = parseJUnit(req.file.buffer.toString("utf8"), req.body); if (run.quality.status === "QUARANTINED") return res.status(422).json({ error: "Report was quarantined and was not ingested.", quality: run.quality, preview: preview(run) }); const stored = await ingest(run); res.status(201).json({ run: publicRun(stored), preview: preview(stored) }); } catch (error) { res.status(400).json({ error: error instanceof Error ? error.message : "Invalid JUnit XML" }); } });
+app.post("/api/test-runs", upload.single("file"), async (req, res) => { if (!req.file) return res.status(400).json({ error: "Attach a JUnit XML file using the 'file' field." }); try { const run = parseJUnit(req.file.buffer.toString("utf8"), { ...req.body, sourceType: "manual-upload", sourceName: req.file.originalname }); if (run.quality.status === "QUARANTINED") return res.status(422).json({ error: "Report was quarantined and was not ingested.", quality: run.quality, preview: preview(run) }); const stored = await ingest(run); res.status(201).json({ run: publicRun(stored), preview: preview(stored) }); } catch (error) { res.status(400).json({ error: error instanceof Error ? error.message : "Invalid JUnit XML" }); } });
 app.get("/api/failure-groups", async (req, res) => {
   await refreshPersistentState();
   const runId = text(req.query.runId).trim();
@@ -418,7 +443,7 @@ app.post("/api/demo/seed", async (req, res) => {
     { id: "demo-expanded", build: "demo-expanded", xml: `<?xml version="1.0"?><testsuites><testsuite name="Expanded checkout"><testcase classname="LoginTest" name="validLogin"/><testcase classname="CheckoutTest" name="submitOrder"><failure message="checkout failed">checkout failed at checkout.ts:1</failure></testcase><testcase classname="ProfileTest" name="loadProfile"><skipped/></testcase><testcase classname="SearchTest" name="searchProducts"/><testcase classname="CartTest" name="addItem"><error message="cart setup error">cart setup error at cart.ts:4</error></testcase><testcase classname="InventoryTest" name="checkStock"/><testcase classname="NotificationTest" name="sendReceipt"/><testcase classname="AuditTest" name="recordOrder"/></testsuite></testsuites>` }
   ];
   const ingested = [];
-  for (const report of reports) ingested.push(await ingest(parseJUnit(report.xml, { projectId: body.projectId || "default", build: report.build, environment: "demo", externalRunId: report.id })));
+  for (const report of reports) ingested.push(await ingest(parseJUnit(report.xml, { projectId: body.projectId || "default", build: report.build, environment: "demo", externalRunId: report.id, sourceType: "demo", sourceName: report.id })));
   const selected = ingested[ingested.length - 1];
   res.json({ ok: true, scenario: "demo-pack", runs: ingested.map(publicRun), run: publicRun(selected), preview: preview(selected) });
 });

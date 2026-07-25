@@ -267,6 +267,9 @@ test("dashboard source renders adapter and report metadata fields", async () => 
   assert.match(dashboard, /Adapter/);
   assert.match(dashboard, /Properties/);
   assert.match(dashboard, /run\.warnings/);
+  assert.match(dashboard, /Developer checks/);
+  assert.match(dashboard, /async function devAll\(\)/);
+  assert.match(dashboard, /sourceType===.manual-upload./);
 });
 
 test("persistent reads and dashboard bootstrap avoid stale instance state", async () => {
@@ -298,4 +301,38 @@ test("contract-breaking report quality issues are quarantined before ingestion",
   assert.equal(result.quality.status, "QUARANTINED");
   assert.ok(result.quality.issues.some((issue: any) => issue.code === "MISSING_TESTCASE_NAME"));
   assert.equal(result.preview.summary.logicalTests, 1);
+});
+
+test("ingested runs expose stable source provenance", async () => {
+  const xml = "<?xml version=\"1.0\"?><testsuites><testsuite name=\"Provenance\"><testcase classname=\"ProvenanceTest\" name=\"source\"/></testsuite></testsuites>";
+  const response = await uploadXml(xml, { projectId: "project-provenance", build: "build-provenance", environment: "staging", externalRunId: "external-provenance" });
+  const result = await response.json() as any;
+  assert.equal(response.status, 201);
+  assert.equal(result.preview.provenance.sourceType, "manual-upload");
+  assert.equal(result.preview.provenance.sourceName, "inline.xml");
+  assert.equal(result.preview.provenance.externalRunId, "external-provenance");
+  assert.equal(result.preview.provenance.projectId, "project-provenance");
+  assert.equal(result.preview.provenance.build, "build-provenance");
+  assert.equal(result.preview.provenance.environment, "staging");
+  assert.match(result.preview.provenance.contentHash, /^[a-f0-9]{64}$/);
+  assert.equal(result.run.provenance.contentHash, result.preview.provenance.contentHash);
+  assert.equal(result.run.provenance.ingestedAt, result.run.ingestedAt);
+});
+
+test("normalized storage schema includes provenance columns", async () => {
+  const storageSource = await readFile(path.join(process.cwd(), "src", "storage.ts"), "utf8");
+  assert.match(storageSource, /source_type/);
+  assert.match(storageSource, /source_name/);
+  assert.match(storageSource, /external_run_id/);
+  assert.match(storageSource, /content_hash/);
+  assert.match(storageSource, /provenance/);
+});
+
+test("developer checks live in a separate mobile workspace", async () => {
+  const developerDashboard = await readFile(path.join(process.cwd(), "public", "developer.html"), "utf8");
+  assert.match(developerDashboard, /Phase 5 checks/);
+  assert.match(developerDashboard, /Developer workspace/);
+  assert.match(developerDashboard, /async function devAll\\(\\)/);
+  assert.match(developerDashboard, /sourceType===.manual-upload./);
+  assert.match(developerDashboard, /id="devAll"/);
 });
