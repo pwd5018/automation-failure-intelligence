@@ -32,4 +32,6 @@ The normalized schema is intentionally additive. New writes populate these colum
 `src/reportQuality.ts` classifies parsed reports as `ACCEPTED`, `ACCEPTED_WITH_WARNINGS`, or `QUARANTINED`. It warns on repeated identities and declared-count mismatches, while missing testcase names and empty reports are quarantined. Source records remain literal and repeated names are never interpreted as retries. Preview exposes the quality result; ingestion returns HTTP 422 for quarantined reports before persistence or failure-group creation.
 
 
+The dashboard's Developer checks panel runs the Phase 5 API checks without requiring browser developer tools.
+
 The run provenance is stored in the JSONB payload and additive `afi_runs` columns (`source_type`, `source_name`, `external_run_id`, `content_hash`, and `provenance`) so normalized reads retain the source boundary without changing the API result semantics.
