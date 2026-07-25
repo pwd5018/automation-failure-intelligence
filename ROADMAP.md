@@ -17,6 +17,7 @@ Automation Failure Intelligence is a private QA-triage workspace for understandi
 - The dashboard now surfaces adapter identity, declared report metadata, properties, and parser warnings for each selected run.
 - Phase 4 normalized persistence and read reconstruction are implemented and validated on the remote `main` branch.
 - Phase 5 Slice 1 is implemented on the report-quality branch: shared quality classification, declared-count warnings, repeated-identity warnings, and pre-ingestion quarantine for missing testcase names.
+- Phase 5 Slice 2 adds explicit source provenance to run responses and normalized Postgres metadata: source type/name, external run ID, project/build/environment, ingestion timestamp, and content hash.
 
 ## Phases
 
@@ -68,7 +69,7 @@ Current implementation slice:
 Before accepting externally ingested reports, establish a clean and trustworthy report boundary:
 
 - Define report-quality checks for malformed, empty, incomplete, duplicate, and structurally ambiguous reports. (Slice 1 adds shared quality statuses/issues and initial empty, missing-name, repeated-identity, and declared-count checks.)
-- Preserve source provenance and identify the external source, project, build, environment, and ingestion timestamp.
+- Preserve source provenance and identify the external source, project, build, environment, and ingestion timestamp. (Slice 2 adds explicit provenance fields and normalized storage columns.)
 - Surface actionable validation warnings without changing source XML semantics.
 - Quarantine or reject reports that cannot meet the stored-result contract.
 - Verify normalized JSONB/read parity across baseline, large, nested, parameterized, and explicit-adapter fixtures.
