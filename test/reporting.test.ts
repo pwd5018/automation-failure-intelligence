@@ -267,6 +267,9 @@ test("dashboard source renders adapter and report metadata fields", async () => 
   assert.match(dashboard, /Adapter/);
   assert.match(dashboard, /Properties/);
   assert.match(dashboard, /run\.warnings/);
+  assert.match(dashboard, /Developer checks/);
+  assert.match(dashboard, /async function devAll\(\)/);
+  assert.match(dashboard, /sourceType===.manual-upload./);
 });
 
 test("persistent reads and dashboard bootstrap avoid stale instance state", async () => {
