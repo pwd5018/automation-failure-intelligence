@@ -76,19 +76,29 @@ Before accepting externally ingested reports, establish a clean and trustworthy 
 - Add regression coverage for repeated uploads, concurrent ingestion, large reports, and persistence failures.
 - Keep manual upload as the controlled ingestion path until this phase closes.
 
-External CI/webhook ingestion begins only after the Phase 5 quality and validation gate passes.
+External CI/webhook ingestion remains a later phase and begins only after the Phase 5 quality gate and Phase 6 investigation-workspace gate pass.
 
-### Next planned slice - Test detail investigation workspace
+### Phase 6 - Test detail investigation workspace (planned)
 
-After Phase 5, add a focused result-detail surface for investigating one reported testcase at a time: source name, suite/class, parameters, status, duration, failure/error message, stack trace, source order, provenance, and any explicit attempt data. Keep the main dashboard lightweight and preserve the exact source contract.
+Add a focused result-detail surface for investigating one reported testcase at a time:
 
-### Deferred collaboration work
+- Source name, suite, class, parameters, and source order.
+- Reported status and duration.
+- Failure/error message and stack trace.
+- Provenance and any explicit attempt data.
+- Mobile-friendly navigation from the run workspace and failure evidence.
+- Preserve the exact source contract and keep the main dashboard lightweight.
 
+### Phase 7 - External ingestion and collaboration (future)
+
+- CI/webhook ingestion.
 - Authentication.
 - Team/project isolation.
 - Roles and audit history.
-- CI/webhook ingestion.
 - Automatic Jira integration.
+
+### Deferred behavior work
+
 - Retry and flaky inference without explicit framework metadata.
 
 ## Validation gate
