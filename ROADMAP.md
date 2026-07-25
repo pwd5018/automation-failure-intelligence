@@ -78,6 +78,10 @@ Before accepting externally ingested reports, establish a clean and trustworthy 
 
 External CI/webhook ingestion begins only after the Phase 5 quality and validation gate passes.
 
+### Next planned slice - Test detail investigation workspace
+
+After Phase 5, add a focused result-detail surface for investigating one reported testcase at a time: source name, suite/class, parameters, status, duration, failure/error message, stack trace, source order, provenance, and any explicit attempt data. Keep the main dashboard lightweight and preserve the exact source contract.
+
 ### Deferred collaboration work
 
 - Authentication.
