@@ -267,9 +267,8 @@ test("dashboard source renders adapter and report metadata fields", async () => 
   assert.match(dashboard, /Adapter/);
   assert.match(dashboard, /Properties/);
   assert.match(dashboard, /run\.warnings/);
-  assert.match(dashboard, /Developer checks/);
-  assert.match(dashboard, /async function devAll\(\)/);
-  assert.match(dashboard, /sourceType===.manual-upload./);
+  assert.match(dashboard, /developer\.html/);
+  assert.doesNotMatch(dashboard, /async function devAll\(\)/);
 });
 
 test("persistent reads and dashboard bootstrap avoid stale instance state", async () => {
@@ -332,7 +331,7 @@ test("developer checks live in a separate mobile workspace", async () => {
   const developerDashboard = await readFile(path.join(process.cwd(), "public", "developer.html"), "utf8");
   assert.match(developerDashboard, /Phase 5 checks/);
   assert.match(developerDashboard, /Developer workspace/);
-  assert.match(developerDashboard, /async function devAll\\(\\)/);
+  assert.match(developerDashboard, /async function devAll\(\)/);
   assert.match(developerDashboard, /sourceType===.manual-upload./);
   assert.match(developerDashboard, /id="devAll"/);
 });
