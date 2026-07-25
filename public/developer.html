@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Developer checks - Automation Failure Intelligence</title>
+<style>
+:root{font-family:Inter,ui-sans-serif,system-ui,sans-serif;color:#182033;background:#f4f6fb}
+*{box-sizing:border-box}body{margin:0}.shell{width:min(760px,100%);margin:auto;padding:20px 12px 40px}
+.card{background:#fff;border:1px solid #e2e7f0;border-radius:18px;padding:18px;box-shadow:0 8px 24px #25345b08}
+h1{font-size:clamp(26px,7vw,38px);margin:8px 0}h2{font-size:20px;margin:0 0 10px}
+p{color:#67738a;line-height:1.5}.eyebrow{color:#5965db;font-size:12px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}
+.actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:18px 0 4px}
+button,a{border:0;border-radius:10px;background:#5965db;color:#fff;padding:12px 14px;font:inherit;font-weight:750;text-align:center;text-decoration:none;cursor:pointer;min-height:46px}
+.back{display:inline-block;background:#eef0ff;color:#4b57c5;margin-bottom:16px}.wide{grid-column:1/-1}
+.results{display:grid;gap:8px;margin-top:16px}.result{padding:12px;border-radius:10px;background:#f7f8fc;border-left:4px solid #b8c0d2;font-size:13px;overflow-wrap:anywhere}.result.pass{border-left-color:#18794e}.result.fail{border-left-color:#b42318;background:#fff5f5}.result b{display:block;margin-bottom:4px}.result pre{white-space:pre-wrap;margin:6px 0 0;font-size:11px;max-height:160px;overflow:auto}
+.muted{color:#7b8699;font-size:13px}@media(max-width:560px){.actions{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<main class="shell">
+<a class="back" href="/">← Back to dashboard</a>
+<div class="eyebrow">Developer workspace</div>
+<h1>Phase 5 checks</h1>
+<p>These checks use built-in reports and are intentionally separate from the product dashboard. Add future diagnostics here without cluttering the user workflow.</p>
+<section class="card">
+<h2>Run checks</h2>
+<div class="actions">
+<button id="devHealth">Check health</button>
+<button id="devProvenance">Check provenance</button>
+<button id="devQuality">Check warning report</button>
+<button id="devQuarantine">Check quarantine</button>
+<button id="devAll" class="wide">Run all checks</button>
+</div>
+<div id="devResults" class="results"><p class="muted">No checks run yet.</p></div>
+</section>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function devReport(kind){if(kind==='provenance')return '<?xml version="1.0"?><testsuites><testsuite name="Developer provenance"><testcase classname="DevTest" name="source"/></testsuite></testsuites>';if(kind==='quality')return '<?xml version="1.0"?><testsuites tests="3" failures="0" errors="0" skipped="0"><testsuite name="Declared mismatch"><testcase name="one"/><testcase name="two"/></testsuite></testsuites>';if(kind==='quarantine')return '<?xml version="1.0"?><testsuites><testsuite name="Missing identity"><testcase classname="DevTest"/></testsuite></testsuites>';return '<?xml version="1.0"?><testsuites tests="0"/>';}
+function devForm(kind){const form=new FormData();form.append('file',new Blob([devReport(kind)],{type:'application/xml'}),kind+'.xml');form.append('projectId','developer-checks');form.append('build','phase-5-dev-dashboard');form.append('environment','mobile-preview');form.append('externalRunId','dev-'+kind+'-'+Date.now());return form;}
+function devShow(label,pass,detail){const item=document.createElement('div');item.className='result '+(pass?'pass':'fail');item.innerHTML='<b>'+(pass?'PASS':'CHECK')+' - '+esc(label)+'</b><span>'+esc(detail)+'</span>';const empty=$('devResults').querySelector('.muted');if(empty)empty.remove();$('devResults').prepend(item);}
+async function devJson(url,options){const response=await fetch(url,options);let body={};try{body=await response.json();}catch{}return {response,body};}
+async function devHealth(){const {response,body}=await devJson('/api/health');devShow('Health endpoint',response.ok&&body.ok,'HTTP '+response.status+' - storage: '+(body.storage||'unknown'));}
+async function devProvenance(){const {response,body}=await devJson('/api/test-runs',{method:'POST',body:devForm('provenance')});const p=body.run?.provenance||body.preview?.provenance;const pass=response.status===201&&p?.sourceType==='manual-upload'&&p?.sourceName==='provenance.xml'&&p?.externalRunId&&/^[a-f0-9]{64}$/.test(p.contentHash);devShow('Provenance ingestion',pass,'HTTP '+response.status+' - '+JSON.stringify(p||body));if(pass){const read=await devJson('/api/test-runs/'+body.run.id);devShow('Persisted provenance read',read.response.ok&&read.body.provenance?.contentHash===p.contentHash,'HTTP '+read.response.status+' - content hash preserved: '+(read.body.provenance?.contentHash===p.contentHash));}}
+async function devQuality(){const {response,body}=await devJson('/api/test-runs/preview',{method:'POST',body:devForm('quality')});const pass=response.ok&&body.quality?.status==='ACCEPTED_WITH_WARNINGS'&&body.quality.issues?.some(issue=>issue.code==='DECLARED_TESTS_MISMATCH');devShow('Declared-count warning',pass,'HTTP '+response.status+' - '+JSON.stringify(body.quality||body));}
+async function devQuarantine(){const {response,body}=await devJson('/api/test-runs',{method:'POST',body:devForm('quarantine')});const pass=response.status===422&&body.quality?.status==='QUARANTINED'&&body.quality.issues?.some(issue=>issue.code==='MISSING_TESTCASE_NAME');devShow('Missing-name quarantine',pass,'HTTP '+response.status+' - '+JSON.stringify(body.quality||body));}
+async function devAll(){$('devResults').innerHTML='';await devHealth();await devProvenance();await devQuality();await devQuarantine();}
+$('devHealth').onclick=devHealth;$('devProvenance').onclick=devProvenance;$('devQuality').onclick=devQuality;$('devQuarantine').onclick=devQuarantine;$('devAll').onclick=devAll;
+</script>
+</body>
+</html>
