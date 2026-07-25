@@ -9,9 +9,10 @@ The application is an Express service serving a responsive static dashboard.
 3. `src/server.ts` validates XML, recursively extracts testcase records from nested suites, preserves reported names and parameters, and creates one logical result per source testcase.
 4. Explicit framework metadata selects a registered adapter label; unknown or absent metadata stays on generic JUnit semantics.
 5. Report quality is evaluated after source records are parsed; accepted reports proceed, warning reports retain actionable issues, and quarantined reports are not ingested.
-6. Failed and error results create exact normalized failure groups.
-7. During Phase 4, Postgres keeps the existing JSONB run/group payloads as the API compatibility and provenance source while adding indexed run columns and `afi_test_results` source rows.
-8. Without a usable database, the service remains available with in-memory storage.
+6. Accepted runs carry explicit source provenance, including source type/name, external run ID, project/build/environment, ingestion timestamp, and content hash.
+7. Failed and error results create exact normalized failure groups.
+8. During Phase 4, Postgres keeps the existing JSONB run/group payloads as the API compatibility and provenance source while adding indexed run columns and `afi_test_results` source rows.
+9. Without a usable database, the service remains available with in-memory storage.
 
 ## Data contract
 
@@ -29,3 +30,6 @@ The normalized schema is intentionally additive. New writes populate these colum
 ## Report quality
 
 `src/reportQuality.ts` classifies parsed reports as `ACCEPTED`, `ACCEPTED_WITH_WARNINGS`, or `QUARANTINED`. It warns on repeated identities and declared-count mismatches, while missing testcase names and empty reports are quarantined. Source records remain literal and repeated names are never interpreted as retries. Preview exposes the quality result; ingestion returns HTTP 422 for quarantined reports before persistence or failure-group creation.
+
+
+The run provenance is stored in the JSONB payload and additive `afi_runs` columns (`source_type`, `source_name`, `external_run_id`, `content_hash`, and `provenance`) so normalized reads retain the source boundary without changing the API result semantics.
