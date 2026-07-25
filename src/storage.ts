@@ -50,6 +50,11 @@ const normalizedSchemaSql = `
   ALTER TABLE afi_runs ADD COLUMN IF NOT EXISTS report_metadata JSONB;
   ALTER TABLE afi_runs ADD COLUMN IF NOT EXISTS warnings JSONB;
   ALTER TABLE afi_runs ADD COLUMN IF NOT EXISTS summary JSONB;
+  ALTER TABLE afi_runs ADD COLUMN IF NOT EXISTS source_type TEXT;
+  ALTER TABLE afi_runs ADD COLUMN IF NOT EXISTS source_name TEXT;
+  ALTER TABLE afi_runs ADD COLUMN IF NOT EXISTS external_run_id TEXT;
+  ALTER TABLE afi_runs ADD COLUMN IF NOT EXISTS content_hash TEXT;
+  ALTER TABLE afi_runs ADD COLUMN IF NOT EXISTS provenance JSONB;
 
   CREATE INDEX IF NOT EXISTS afi_runs_project_id_idx ON afi_runs (project_id);
   CREATE INDEX IF NOT EXISTS afi_runs_result_status_idx ON afi_runs (result_status);
@@ -126,6 +131,7 @@ function hydrateRunFromNormalizedRows(runRow: any, resultRows: any[]): any {
     summary: runRow.summary ?? payload.summary,
     resultStatus: runRow.result_status ?? payload.resultStatus,
     processingStatus: runRow.processing_status ?? payload.processingStatus,
+    provenance: runRow.provenance ?? payload.provenance,
     rawRecords,
     logicalTests
   };
@@ -169,7 +175,8 @@ export async function createStorage(): Promise<Storage> {
       const [runRows, resultRows, groupRows] = await Promise.all([
         pool.query(`SELECT id, payload, project_id, build, environment, adapter, adapter_version,
                            result_status, processing_status, ingested_at, raw_report,
-                           report_metadata, warnings, summary
+                           report_metadata, warnings, summary,
+                           source_type, source_name, external_run_id, content_hash, provenance
                     FROM afi_runs ORDER BY updated_at DESC`),
         pool.query(`SELECT id, run_id, source_order, source_id, identity, suite, class_name,
                            test_name, parameters, raw_status, message, stack_trace,
@@ -199,8 +206,9 @@ export async function createStorage(): Promise<Storage> {
           `INSERT INTO afi_runs
              (id, payload, project_id, build, environment, adapter, adapter_version,
               result_status, processing_status, ingested_at, raw_report,
-              report_metadata, warnings, summary, updated_at)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW())
+              report_metadata, warnings, summary, source_type, source_name,
+              external_run_id, content_hash, provenance, updated_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, NOW())
            ON CONFLICT (id) DO UPDATE SET
              payload = EXCLUDED.payload,
              project_id = EXCLUDED.project_id,
@@ -215,8 +223,13 @@ export async function createStorage(): Promise<Storage> {
              report_metadata = EXCLUDED.report_metadata,
              warnings = EXCLUDED.warnings,
              summary = EXCLUDED.summary,
+             source_type = EXCLUDED.source_type,
+             source_name = EXCLUDED.source_name,
+             external_run_id = EXCLUDED.external_run_id,
+             content_hash = EXCLUDED.content_hash,
+             provenance = EXCLUDED.provenance,
              updated_at = NOW()`,
-          [run.id, jsonValue(run), run.projectId, run.build, run.environment, run.adapter, run.adapterVersion, run.resultStatus, run.processingStatus, run.ingestedAt, run.rawReport, jsonValue(run.reportMetadata), jsonValue(run.warnings), jsonValue(run.summary)]
+          [run.id, jsonValue(run), run.projectId, run.build, run.environment, run.adapter, run.adapterVersion, run.resultStatus, run.processingStatus, run.ingestedAt, run.rawReport, jsonValue(run.reportMetadata), jsonValue(run.warnings), jsonValue(run.summary), run.provenance?.sourceType || null, run.provenance?.sourceName || null, run.provenance?.externalRunId || null, run.provenance?.contentHash || null, jsonValue(run.provenance)]
         );
         await client.query("DELETE FROM afi_test_results WHERE run_id = $1", [run.id]);
         for (const record of run.rawRecords || []) {
