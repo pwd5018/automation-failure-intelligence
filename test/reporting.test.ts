@@ -327,3 +327,12 @@ test("normalized storage schema includes provenance columns", async () => {
   assert.match(storageSource, /content_hash/);
   assert.match(storageSource, /provenance/);
 });
+
+test("developer checks live in a separate mobile workspace", async () => {
+  const developerDashboard = await readFile(path.join(process.cwd(), "public", "developer.html"), "utf8");
+  assert.match(developerDashboard, /Phase 5 checks/);
+  assert.match(developerDashboard, /Developer workspace/);
+  assert.match(developerDashboard, /async function devAll\\(\\)/);
+  assert.match(developerDashboard, /sourceType===.manual-upload./);
+  assert.match(developerDashboard, /id="devAll"/);
+});
