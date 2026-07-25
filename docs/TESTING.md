@@ -26,6 +26,7 @@ Use [GITHUB_WORKFLOW.md](GITHUB_WORKFLOW.md) to publish completed changes throug
 - Report quality exposes declared-count warnings without changing parsed results.
 - Contract-breaking missing testcase names are quarantined before ingestion and failure-group creation.
 - Ingested runs expose stable source provenance and normalized storage includes provenance columns.
+- The dashboard provides mobile Developer checks for health, provenance, quality warnings, quarantine, and persisted-read verification.
 - Repeated refreshes see the same persisted run history across application instances.
 - Single failed/error results do not appear as selected-run failure groups; shared signatures across multiple tests do.
 
