@@ -1,6 +1,6 @@
 # Automation Failure Intelligence
 
-A small hosted sandbox for inspecting automated test results and grouping confirmed failures.
+A small hosted sandbox for inspecting JUnit-compatible automated test results and grouping confirmed failures.
 
 ## Run it
 
@@ -14,6 +14,8 @@ Open http://localhost:3000. Run the regression suite with `npm test`.
 For the contribution and deployment workflow, see [docs/GITHUB_WORKFLOW.md](docs/GITHUB_WORKFLOW.md).
 
 ## Current behavior
+
+The MVP reporting workflow is JUnit-first. Framework adapter labels are passive metadata; framework-specific transformations and retry semantics are deferred until the core JUnit workflow is proven.
 
 The current model is intentionally simple and truthful:
 

@@ -277,7 +277,8 @@ test("persistent reads and dashboard bootstrap avoid stale instance state", asyn
   assert.match(serverSource, /refreshPersistentState/);
   assert.match(serverSource, /await refreshPersistentState\(\)/);
   assert.match(dashboard, /async function boot\(\)/);
-  assert.match(dashboard, /await demo\(\);\s*await refreshRuns\(\);\s*await refreshGroups\(\)/);
+  assert.match(dashboard, /await refreshRuns\(\);\s*await refreshGroups\(\)/);
+  assert.doesNotMatch(dashboard, /await demo\(\)/);
 });
 
 test("report quality exposes declared-count warnings without changing source results", async () => {

@@ -1,6 +1,6 @@
 # Architecture
 
-The application is an Express service serving a responsive static dashboard.
+The application is an Express service serving a responsive static dashboard. The MVP is intentionally JUnit-first: the primary product path is loading a JUnit-compatible XML report, selecting a stored run, reviewing literal results, and investigating source evidence. Adapter labels remain passive metadata until the JUnit workflow is mature.
 
 ## Request flow
 
@@ -35,6 +35,6 @@ The normalized schema is intentionally additive. New writes populate these colum
 
 The separate `public/developer.html` workspace runs the Phase 5 API checks without cluttering the product dashboard. It is opened from the main dashboard in a new tab and is intended to grow with future diagnostics.
 
-Phase 6 Slice 1 provides `GET /api/test-runs/:runId/results/:testId` for one reported testcase, keeping the detail contract separate from the lightweight run dashboard. The remaining Phase 6 work is the dashboard detail surface, evidence navigation, and mobile/deployment validation. Phase 7 is reserved for external ingestion and collaboration.
+Phase 6 Slice 1 provides `GET /api/test-runs/:runId/results/:testId` for one reported testcase, keeping the detail contract separate from the lightweight run dashboard. The current UI simplification keeps the JUnit result list primary, removes automatic demo seeding, stacks shared-failure review below the run workspace, and places report/provenance metadata behind progressive disclosure. Remaining Phase 6 work is the dashboard detail surface, evidence navigation, and mobile/deployment validation. Phase 7 is reserved for external ingestion and collaboration.
 
 The run provenance is stored in the JSONB payload and additive `afi_runs` columns (`source_type`, `source_name`, `external_run_id`, `content_hash`, and `provenance`) so normalized reads retain the source boundary without changing the API result semantics.

@@ -182,7 +182,7 @@
 
         .run-grid {
             display: grid;
-            grid-template-columns:1.05fr .95fr;
+            grid-template-columns:1fr;
             gap: 18px
         }
 
@@ -418,6 +418,26 @@
             min-width: 82px
         }
 
+        .metadata-details {
+            margin: 12px 0;
+            border: 1px solid #e6eaf2;
+            border-radius: 12px;
+            padding: 10px 12px;
+            background: #f7f8fc
+        }
+
+        .metadata-details summary {
+            cursor: pointer;
+            color: #5965db;
+            font-size: 13px;
+            font-weight: 750
+        }
+
+        .metadata-details .metadata {
+            margin-bottom: 2px;
+            padding: 8px 0 0
+        }
+
         @media (max-width: 900px) {
             .summary-metrics {
                 grid-template-columns:repeat(3, 1fr)
@@ -508,7 +528,7 @@
     <section class="card summary">
         <div class="summary-top">
             <div>
-                <div class="muted">Latest report</div>
+                <div class="muted">Selected JUnit report</div>
                 <div id="summaryTitle" class="summary-title">No report loaded</div>
                 <p id="summaryCopy" class="summary-copy">Load the demo report or choose a JUnit XML file.</p></div>
             <div id="summaryBadges"></div>
@@ -535,7 +555,7 @@
                 <option value="ERROR">Runs containing errors</option>
                 <option value="SKIPPED">Runs containing skipped results</option>
             </select><input id="runSearch" placeholder="Search stored runs" aria-label="Search stored runs"></div>
-            <div id="runInfo"><p>Report metadata and test results will appear here.</p></div>
+            <div id="runInfo"><p>Choose a stored run or load a JUnit XML report to review its results.</p></div>
             <h3>Test results</h3>
             <p class="muted">Each row is one testcase record from the XML report. Repeated names remain separate.</p>
             <div class="filters"><select id="testStatus" aria-label="Filter test results">
@@ -548,8 +568,8 @@
                             aria-label="Search test results"></div>
             <div id="testResults" class="test-results"><p class="muted">No test results loaded yet.</p></div>
         </div>
-        <div class="card"><h2>Failure groups</h2>
-            <p class="muted">Failures and errors are grouped from the reported results.</p>
+        <div class="card secondary-panel"><h2>Shared failures</h2>
+            <p class="muted">Secondary investigation view for multiple failed or error results sharing the same reported evidence.</p>
             <div id="list" class="list"><p style="padding:20px">No failure groups yet.</p></div>
         </div>
     </section>
@@ -600,7 +620,9 @@
         $('errorCount').textContent = errors;
         $('skippedCount').textContent = skipped;
         $('summaryNote').innerHTML = run.warnings?.length ? '<div class="notice"><b>Reporting note</b><ul>' + run.warnings.map(w => '<li>' + esc(w) + '</li>').join('') + '</ul></div>' : '';
-        $('runInfo').innerHTML = '<div class="muted">' + esc(run.projectId) + ' - ' + esc(run.build || 'local') + ' - ' + esc(run.environment || 'default') + '</div><div class="metadata"><div class="metadata-row"><span class="metadata-label">Adapter</span><span>' + esc(run.adapter || 'junit-generic') + ' ' + esc(run.adapterVersion || '') + '</span></div>' + reportDetails + (properties ? '<div class="metadata-row"><span class="metadata-label">Properties</span><span>' + properties + '</span></div>' : '') + '</div><p>Source: <b>JUnit XML</b> - Each testcase is shown exactly as reported.</p><div class="muted">Ingested ' + esc(run.ingestedAt || '') + '</div>';
+        const provenance = run.provenance || {};
+        const provenanceDetails = '<div class="metadata-row"><span class="metadata-label">Source</span><span>' + esc(provenance.sourceName || provenance.sourceType || 'manual-upload') + '</span></div><div class="metadata-row"><span class="metadata-label">Content hash</span><span>' + esc(provenance.contentHash || '') + '</span></div>';
+        $('runInfo').innerHTML = '<div class="muted">' + esc(run.projectId) + ' - ' + esc(run.build || 'local') + ' - ' + esc(run.environment || 'default') + '</div><p>Source: <b>JUnit XML</b> - Each testcase is shown exactly as reported.</p><details class="metadata-details"><summary>Report and provenance details</summary><div class="metadata"><div class="metadata-row"><span class="metadata-label">Adapter</span><span>' + esc(run.adapter || 'junit-generic') + ' ' + esc(run.adapterVersion || '') + '</span></div>' + reportDetails + (properties ? '<div class="metadata-row"><span class="metadata-label">Properties</span><span>' + properties + '</span></div>' : '') + provenanceDetails + '</div></details><div class="muted">Ingested ' + esc(run.ingestedAt || '') + '</div>';
         renderTests();
     }
 
@@ -743,7 +765,7 @@
     $('demo').onclick = demo;
     $('demo').textContent = 'Load demo runs';
     $('testSearch').placeholder = 'Search tests or classes';
-    $('list').parentElement.querySelector('p').textContent = 'Failures and errors reported by the selected run.';
+      $('list').parentElement.querySelector('p').textContent = 'Secondary investigation view for multiple failed or error results sharing the same reported evidence.';
     $('runHistory').onchange = async () => {
         if (!$('runHistory').value) return;
         const r = await fetch('/api/test-runs/' + $('runHistory').value);
@@ -758,7 +780,6 @@
 
     async function boot() {
         await loadHealth();
-        await demo();
         await refreshRuns();
         await refreshGroups();
     }
