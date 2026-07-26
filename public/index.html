@@ -515,6 +515,50 @@
             font-size: 12px
         }
 
+        .disposition-editor {
+            margin: 18px 0;
+            padding: 14px;
+            border: 1px solid #e6eaf2;
+            border-radius: 12px;
+            background: #fbfcfe
+        }
+
+        .disposition-editor label {
+            display: block;
+            margin: 10px 0 5px;
+            color: #657087;
+            font-size: 12px;
+            font-weight: 750
+        }
+
+        .disposition-editor select, .disposition-editor input, .disposition-editor textarea {
+            width: 100%;
+            box-sizing: border-box;
+            border: 1px solid #d8deea;
+            border-radius: 9px;
+            padding: 10px;
+            font: inherit
+        }
+
+        .disposition-editor textarea {
+            min-height: 74px;
+            resize: vertical
+        }
+
+        .disposition-suggestions {
+            display: flex;
+            gap: 7px;
+            flex-wrap: wrap;
+            margin: 10px 0
+        }
+
+        .suggestion-button {
+            background: #eef0ff;
+            color: #4b57c5;
+            font-size: 12px;
+            padding: 8px 10px
+        }
+
         .detail pre {
             white-space: pre-wrap;
             background: #f7f8fb;
@@ -733,7 +777,7 @@
     <section id="detail" class="card detail"><p>Select a failure group to inspect its evidence.</p></section>
 </main>
 <script>
-    let groups = [], currentRun = null, selected = null;
+    let groups = [], currentRun = null, selected = null, activeSuggestions = [];
     const $ = id => document.getElementById(id);
     const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({
         '&': '&amp;',
@@ -845,6 +889,19 @@
         return String(test.identity || '').split('#').slice(0, 2).join('#');
     }
 
+    function resultCanBeClassified(result) {
+        return result.needsReview || result.finalStatus === 'failed' || result.finalStatus === 'error' || (result.attempts || []).some(attempt => attempt.rawStatus === 'FAILED' || attempt.rawStatus === 'ERROR');
+    }
+
+    function dispositionEditor(payload) {
+        const result = payload.result;
+        if (!resultCanBeClassified(result)) return '<p class="muted">This result has no failure disposition to classify.</p>';
+        activeSuggestions = payload.suggestions || [];
+        const suggestions = activeSuggestions.length ? '<div class="muted"><b>Previous matching dispositions</b> from the same test and failure signature:</div><div class="disposition-suggestions">' + activeSuggestions.map((item, index) => '<button class="suggestion-button" onclick="useDispositionSuggestion(' + index + ')">' + esc(item.classification) + (item.jiraIssue?.key ? ' · ' + esc(item.jiraIssue.key) : '') + (item.build ? ' · ' + esc(item.build) : '') + '</button>').join('') + '</div>' : '<p class="muted">No matching prior disposition was found. Add a new reason below.</p>';
+        const disposition = payload.disposition || {};
+        return '<div class="disposition-editor"><h3>Failure disposition</h3><p class="muted">Classify this result for future runs. Matching prior decisions appear as suggestions and are never applied automatically.</p>' + suggestions + '<label for="resultClassification">Classification</label><select id="resultClassification"><option value="unknown">Unknown</option><option value="product-defect">Product defect</option><option value="test-defect">Automation issue</option><option value="environment-issue">Environment issue</option><option value="test-data-issue">Test data issue</option><option value="known-failure">Known Jira issue</option><option value="duplicate">Duplicate</option></select><label for="resultJira">Jira issue</label><input id="resultJira" placeholder="Jira issue key, e.g. QA-123" value="' + esc(disposition.jiraIssue?.key || '') + '"><label for="resultNotes">Notes</label><textarea id="resultNotes" placeholder="Why this classification applies">' + esc(disposition.notes || '') + '</textarea><button onclick="saveResultDisposition(\'' + esc(payload.run.id) + '\',\'' + esc(result.id) + '\')">Save disposition</button></div>';
+    }
+
     function renderTestDetail(payload) {
         const result = payload.result;
         const siblings = (currentRun?.logicalTests || []).filter(test => detailGroupKey(test) === detailGroupKey(result));
@@ -863,7 +920,8 @@
             const attemptsMarkup = attempts.map((attempt, attemptIndex) => '<div class="attempt-detail-row"><b>Attempt ' + (attempt.attemptNumber || attemptIndex + 1) + '</b><span>' + esc(String(attempt.rawStatus || attempt.status || 'UNKNOWN').toUpperCase()) + '</span><span>' + esc(attempt.message || attempt.stackTrace || 'No additional evidence reported.') + '</span></div>').join('');
             return '<article class="iteration-card"><div class="iteration-heading"><div><b>Iteration ' + (index + 1) + '</b><div class="muted">' + esc(test.parameters || 'No parameter signature reported') + '</div></div><span class="status ' + esc(String(test.finalStatus || 'unknown')) + '">' + esc(detailStatus(test)) + '</span></div>' + (test.needsReview ? '<div class="notice"><b>Needs review:</b> ' + esc(test.reviewReason || 'The source did not provide enough metadata to classify this sequence.') + '<br>Observed: ' + test.observed.passed + ' passed, ' + test.observed.failed + ' failed, ' + test.observed.errors + ' errors, ' + test.observed.skipped + ' skipped.</div>' : '') + '<div class="attempt-detail">' + attemptsMarkup + '</div></article>';
         }).join('');
-        $('detail').innerHTML = '<div class="detail-toolbar"><div><h2>' + esc(result.name) + '</h2><div class="muted">' + esc(result.className || result.suite || '') + ' - ' + esc(result.suite || '') + '</div></div><button class="detail-back" onclick="closeTestDetail()">Back to results</button></div><p class="muted">Result details from ' + esc(payload.run.build || payload.run.id) + ' · ' + esc(payload.run.environment || 'default') + '</p><div class="detail-summary"><div class="detail-stat"><b>' + iterations.length + '</b><span>Iterations</span></div><div class="detail-stat"><b>' + counts.passed + '</b><span>Passed</span></div><div class="detail-stat"><b>' + counts.failed + '</b><span>Failed</span></div><div class="detail-stat"><b>' + counts.errors + '</b><span>Errors</span></div><div class="detail-stat"><b>' + counts.skipped + '</b><span>Skipped</span></div><div class="detail-stat"><b>' + counts.retries + '</b><span>Retries</span></div><div class="detail-stat"><b>' + counts.flaky + '</b><span>Flaky</span></div><div class="detail-stat"><b>' + counts.review + '</b><span>Needs review</span></div></div><h3>Iterations and attempts</h3><div class="iteration-list">' + iterationMarkup + '</div>';
+        $('detail').innerHTML = '<div class="detail-toolbar"><div><h2>' + esc(result.name) + '</h2><div class="muted">' + esc(result.className || result.suite || '') + ' - ' + esc(result.suite || '') + '</div></div><button class="detail-back" onclick="closeTestDetail()">Back to results</button></div><p class="muted">Result details from ' + esc(payload.run.build || payload.run.id) + ' · ' + esc(payload.run.environment || 'default') + '</p><div class="detail-summary"><div class="detail-stat"><b>' + iterations.length + '</b><span>Iterations</span></div><div class="detail-stat"><b>' + counts.passed + '</b><span>Passed</span></div><div class="detail-stat"><b>' + counts.failed + '</b><span>Failed</span></div><div class="detail-stat"><b>' + counts.errors + '</b><span>Errors</span></div><div class="detail-stat"><b>' + counts.skipped + '</b><span>Skipped</span></div><div class="detail-stat"><b>' + counts.retries + '</b><span>Retries</span></div><div class="detail-stat"><b>' + counts.flaky + '</b><span>Flaky</span></div><div class="detail-stat"><b>' + counts.review + '</b><span>Needs review</span></div></div>' + dispositionEditor(payload) + '<h3>Iterations and attempts</h3><div class="iteration-list">' + iterationMarkup + '</div>';
+        if (resultCanBeClassified(result) && $('resultClassification')) $('resultClassification').value = payload.disposition?.classification || 'unknown';
         $('detail').scrollIntoView({behavior: 'smooth', block: 'start'});
     }
 
@@ -877,6 +935,25 @@
         if (!runId) return local && renderTestDetail({run: currentRun, result: local});
         const response = await fetch('/api/test-runs/' + runId + '/results/' + testId);
         if (!response.ok) return alert('Result details are not available for this report.');
+        renderTestDetail(await response.json());
+    }
+
+    function useDispositionSuggestion(index) {
+        const suggestion = activeSuggestions[index];
+        if (!suggestion) return;
+        $('resultClassification').value = suggestion.classification;
+        $('resultJira').value = suggestion.jiraIssue?.key || '';
+        $('resultNotes').value = suggestion.notes || '';
+    }
+
+    async function saveResultDisposition(runId, testId) {
+        const key = $('resultJira').value.trim();
+        const response = await fetch('/api/test-runs/' + runId + '/results/' + testId + '/disposition', {
+            method: 'PATCH',
+            headers: {'content-type': 'application/json'},
+            body: JSON.stringify({classification: $('resultClassification').value, notes: $('resultNotes').value, jiraIssue: key ? {key} : null})
+        });
+        if (!response.ok) return alert((await response.json()).error);
         renderTestDetail(await response.json());
     }
 

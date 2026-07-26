@@ -135,12 +135,26 @@ type FailureGroup = {
   recoveredAttempts: number;
   jiraIssue?: { key: string; url?: string };
 };
+type ResultDisposition = {
+  id: string;
+  runId: string;
+  testId: string;
+  testIdentity: string;
+  failureSignature?: string;
+  build?: string;
+  environment?: string;
+  classification: Classification;
+  notes: string;
+  jiraIssue?: { key: string; url?: string };
+  updatedAt: string;
+};
 
 const app = express();
 const maxReportBytes = 10 * 1024 * 1024;
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: maxReportBytes } });
 const runs = new Map<string, TestRun>();
 const groups = new Map<string, FailureGroup>();
+const dispositions = new Map<string, ResultDisposition>();
 const retryConfigs = new Map<string, RetryConfig>();
 let storage: Storage;
 
@@ -157,6 +171,11 @@ function profile(value: unknown): RetryProfile { return value === "SKIPPED_THEN_
 function skippedPolicy(value: unknown): SkippedPolicy { return value === "EXCLUDE_FROM_LOGICAL_TOTALS" ? value : "COUNT_AS_SKIPPED"; }
 function evidenceOf(test: any): { message: string; stack: string } | undefined { const node = test.failure ?? test.error ?? test.skipped; if (node === undefined) return undefined; const message = text(node["@_message"] || node["#text"] || "Automated test evidence"); return { message, stack: text(node["#text"] || message) }; }
 function failureOf(test: any): { message: string; stack: string } | undefined { const failure = test.failure ?? test.error; if (failure === undefined) return undefined; const message = text(failure["@_message"] || failure["#text"] || "Automated test failure"); return { message, stack: text(failure["#text"] || message) }; }
+function dispositionSignature(test: LogicalTest): string | undefined {
+  const attempt = [...test.attempts].reverse().find(item => item.rawStatus === "FAILED" || item.rawStatus === "ERROR" || item.message);
+  if (!attempt?.message && !attempt?.stackTrace) return undefined;
+  return signature(attempt.message || "Automated test evidence", attempt.stackTrace || attempt.message || "");
+}
 function classifySkip(record: Pick<RawRecord, "rawStatus" | "message" | "stackTrace" | "duration">): SkipClassification | undefined {
   if (record.rawStatus !== "SKIPPED") return undefined;
   const evidence = `${record.message || ""} ${record.stackTrace || ""}`.toLowerCase();
@@ -438,7 +457,13 @@ async function ingest(run: TestRun): Promise<TestRun> {
   return run;
 }
 function publicRun(run: TestRun): Omit<TestRun, "rawReport"> { const { rawReport: _rawReport, ...safe } = run; return safe; }
-function publicResultDetail(run: TestRun, test: LogicalTest): { run: Record<string, unknown>; result: LogicalTest } {
+function publicResultDetail(run: TestRun, test: LogicalTest): { run: Record<string, unknown>; result: LogicalTest; disposition?: ResultDisposition; suggestions: ResultDisposition[] } {
+  const current = dispositions.get(`${run.id}:${test.id}`);
+  const failureSignature = dispositionSignature(test);
+  const suggestions = [...dispositions.values()]
+    .filter(item => item.runId !== run.id && item.testIdentity === test.identity && Boolean(failureSignature) && item.failureSignature === failureSignature)
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+    .slice(0, 5);
   return {
     run: {
       id: run.id,
@@ -453,16 +478,20 @@ function publicResultDetail(run: TestRun, test: LogicalTest): { run: Record<stri
       ingestedAt: run.ingestedAt,
       provenance: run.provenance
     },
-    result: test
+    result: test,
+    ...(current ? { disposition: current } : {}),
+    suggestions
   };
 }
 function preview(run: TestRun) { return { runId: run.id, projectId: run.projectId, build: run.build, environment: run.environment, adapter: run.adapter, adapterVersion: run.adapterVersion, reportMetadata: run.reportMetadata, retryAnalyzerEnabled: run.retryAnalyzerEnabled, maxRetries: run.maxRetries, retryReportingProfile: run.retryReportingProfile, provenance: run.provenance, quality: run.quality, warnings: run.warnings, summary: run.summary, resultStatus: run.resultStatus, processingStatus: run.processingStatus, logicalTests: run.logicalTests.map(test => ({ name: test.name, suite: test.suite, className: test.className, parameters: test.parameters, finalStatus: test.finalStatus, attempts: test.attempts.map(attempt => ({ attemptNumber: attempt.attemptNumber, rawStatus: attempt.rawStatus, status: attempt.status })), retryCount: test.retryCount, flaky: test.flaky, recoveredAfterRetry: test.recoveredAfterRetry, observed: test.observed, dataProvider: test.dataProvider, needsReview: test.needsReview, reviewReason: test.reviewReason })) }; }
 
-function applyStoredState(state: { runs: any[]; groups: any[] }): void {
+function applyStoredState(state: { runs: any[]; groups: any[]; dispositions?: any[] }): void {
   runs.clear();
   groups.clear();
+  dispositions.clear();
   state.runs.forEach(run => runs.set(run.id, run));
   state.groups.forEach(group => { if (!groups.has(group.signature)) groups.set(group.signature, group); });
+  (state.dispositions || []).forEach(disposition => dispositions.set(`${disposition.runId}:${disposition.testId}`, disposition));
 }
 
 async function refreshPersistentState(): Promise<void> {
@@ -493,6 +522,33 @@ app.get("/api/test-runs/:runId/results/:testId", async (req, res) => {
   if (!run) return res.status(404).json({ error: "Test run not found" });
   const test = run.logicalTests.find(item => item.id === req.params.testId);
   return test ? res.json(publicResultDetail(run, test)) : res.status(404).json({ error: "Test result not found" });
+});
+app.patch("/api/test-runs/:runId/results/:testId/disposition", async (req, res) => {
+  await refreshPersistentState();
+  const run = runs.get(req.params.runId);
+  if (!run) return res.status(404).json({ error: "Test run not found" });
+  const test = run.logicalTests.find(item => item.id === req.params.testId);
+  if (!test) return res.status(404).json({ error: "Test result not found" });
+  const classifications: Classification[] = ["product-defect", "test-defect", "environment-issue", "test-data-issue", "known-failure", "duplicate", "unknown"];
+  if (!classifications.includes(req.body.classification)) return res.status(400).json({ error: "Invalid classification." });
+  if (req.body.notes !== undefined && typeof req.body.notes !== "string") return res.status(400).json({ error: "notes must be a string." });
+  if (req.body.jiraIssue !== undefined && req.body.jiraIssue !== null && (!req.body.jiraIssue || typeof req.body.jiraIssue.key !== "string")) return res.status(400).json({ error: "jiraIssue.key must be a string." });
+  const disposition: ResultDisposition = {
+    id: `rd_${crypto.createHash("sha1").update(`${run.id}:${test.id}`).digest("hex").slice(0, 12)}`,
+    runId: run.id,
+    testId: test.id,
+    testIdentity: test.identity,
+    ...(dispositionSignature(test) ? { failureSignature: dispositionSignature(test) } : {}),
+    classification: req.body.classification,
+    build: run.build,
+    environment: run.environment,
+    notes: typeof req.body.notes === "string" ? req.body.notes : dispositions.get(`${run.id}:${test.id}`)?.notes || "",
+    ...(req.body.jiraIssue ? { jiraIssue: { key: req.body.jiraIssue.key, ...(typeof req.body.jiraIssue.url === "string" ? { url: req.body.jiraIssue.url } : {}) } } : {}),
+    updatedAt: new Date().toISOString()
+  };
+  dispositions.set(`${run.id}:${test.id}`, disposition);
+  await storage.saveDisposition(disposition);
+  res.json(publicResultDetail(run, test));
 });
 app.post("/api/test-runs/preview", upload.single("file"), (req, res) => { if (!req.file) return res.status(400).json({ error: "Attach a JUnit XML file using the 'file' field." }); try { const sourceType = req.body.sourceType === "testng-junit" ? "testng-junit" : "manual-upload"; res.json(preview(parseJUnit(req.file.buffer.toString("utf8"), { ...req.body, sourceType, sourceName: req.file.originalname }))); } catch (error) { res.status(400).json({ error: error instanceof Error ? error.message : "Invalid JUnit XML" }); } });
 app.post("/api/test-runs", upload.single("file"), async (req, res) => { if (!req.file) return res.status(400).json({ error: "Attach a JUnit XML file using the 'file' field." }); try { const sourceType = req.body.sourceType === "testng-junit" ? "testng-junit" : "manual-upload"; const run = parseJUnit(req.file.buffer.toString("utf8"), { ...req.body, sourceType, sourceName: req.file.originalname }); if (run.quality.status === "QUARANTINED") return res.status(422).json({ error: "Report was quarantined and was not ingested.", quality: run.quality, preview: preview(run) }); const stored = await ingest(run); res.status(201).json({ run: publicRun(stored), preview: preview(stored) }); } catch (error) { res.status(400).json({ error: error instanceof Error ? error.message : "Invalid JUnit XML" }); } });
@@ -582,6 +638,6 @@ createStorage().then(async configuredStorage => {
   storage = configuredStorage;
   applyStoredState(await storage.load());
   app.listen(Number(process.env.PORT) || 3000, () => console.log(`Automation Failure Intelligence running on http://localhost:${Number(process.env.PORT) || 3000}`));
-}).catch(error => { console.error("Storage startup failed; using in-memory storage:", error); storage = { persistent: false, load: async () => ({ runs: [], groups: [] }), saveRun: async () => undefined, saveGroup: async () => undefined, deleteRun: async () => undefined, deleteGroup: async () => undefined }; app.listen(Number(process.env.PORT) || 3000, () => console.log("Automation Failure Intelligence running without persistent storage.")); });
+}).catch(error => { console.error("Storage startup failed; using in-memory storage:", error); storage = { persistent: false, load: async () => ({ runs: [], groups: [], dispositions: [] }), saveRun: async () => undefined, saveGroup: async () => undefined, saveDisposition: async () => undefined, deleteRun: async () => undefined, deleteGroup: async () => undefined }; app.listen(Number(process.env.PORT) || 3000, () => console.log("Automation Failure Intelligence running without persistent storage.")); });
 
 

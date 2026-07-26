@@ -24,6 +24,7 @@ The current model is intentionally simple and truthful. The active ingestion pat
 - A single `SKIPPED` is a true skip. With explicit TestNG retry metadata, repeated identities are split into data-provider iterations and retry attempts.
 - Without that metadata, repeated identities are not collapsed: they become one `NEEDS REVIEW` group containing raw records and observed pass/fail/error/skip counts.
 - Click any result row or failure-group evidence to open its detail workspace with iteration totals and per-attempt source evidence.
+- Failed and needs-review results can be classified with a Jira reference and notes. Matching decisions from prior runs are offered as suggestions for confirmation.
 - A retry sequence ending in `PASSED` is flaky and passed; a sequence ending in `FAILED`, `ERROR`, or exhausted `SKIPPED` is not flaky and is failed/error.
 - Retry count is the number of additional attempts beyond the first logical test record.
 - Failure groups appear in a selected run only when at least two failed/error tests share a signature.
@@ -45,6 +46,8 @@ For Vercel, the Supabase integration can provide `POSTGRES_URL` and related vari
 - `POST /api/test-runs/preview` - inspect a TestNG JUnit XML report without storing it.
 - `POST /api/test-runs` - ingest a TestNG JUnit XML report.
 - `GET /api/test-runs` - list ingested runs; supports `status` and `q` filters.
+- `GET /api/test-runs/:runId/results/:testId` - return one result with disposition suggestions.
+- `PATCH /api/test-runs/:runId/results/:testId/disposition` - save an individual result classification.
 - `GET /api/health` - report storage mode and safe connection diagnostics.
 - `GET /api/failure-groups` - list confirmed failure groups.
 - `POST /api/demo/seed` - load the stable demo-run pack.

@@ -22,6 +22,7 @@ Use [GITHUB_WORKFLOW.md](GITHUB_WORKFLOW.md) to publish completed changes throug
 - TestNG true skips, retry skips, recovered retries, exhausted retries, and parameterized retry identities.
 - TestNG data-provider identities with explicit retry metadata collapse into logical iterations; metadata-poor repeated identities become `NEEDS REVIEW` with observed counts and raw history.
 - Result rows and failure evidence open the detail workspace, which shows iteration-level totals and each raw attempt's status/evidence.
+- Individual result dispositions persist classification, Jira, and notes and return matching prior dispositions as confirmation suggestions.
 - Run search and status filters.
 - Storage health reporting.
 - Duplicate ingestion behavior.

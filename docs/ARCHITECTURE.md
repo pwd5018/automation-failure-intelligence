@@ -39,4 +39,6 @@ The separate `public/developer.html` workspace runs the Phase 5 API checks witho
 
 Phase 6 Slice 1 provides `GET /api/test-runs/:runId/results/:testId` for one reported testcase, keeping the detail contract separate from the lightweight run dashboard. The result-detail workspace now opens from test rows and failure evidence, groups sibling logical results as data-provider iterations, and renders each attempt with its source status and evidence. The remaining Phase 6 gate is mobile/deployment validation. Phase 7 is reserved for external ingestion and collaboration.
 
+Result dispositions are stored separately from the source XML and failure groups. A disposition is keyed to the run result and retains classification, Jira reference, notes, test identity, and the normalized failure signature. Later matching results receive prior dispositions as suggestions; the application never applies them automatically, allowing changed failures to receive a new reason.
+
 The run provenance is stored in the JSONB payload and additive `afi_runs` columns (`source_type`, `source_name`, `external_run_id`, `content_hash`, and `provenance`) so normalized reads retain the source boundary without changing the API result semantics.
