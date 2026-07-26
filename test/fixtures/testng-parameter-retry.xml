@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <testsuites framework="testng">
+  <properties><property name="retryAnalyzer" value="true" /></properties>
   <testsuite name="com.example.SearchTest">
     <testcase classname="com.example.SearchTest" name="search" dataProvider="blue" time="0.10">
       <skipped message="TestNG retry handoff" />

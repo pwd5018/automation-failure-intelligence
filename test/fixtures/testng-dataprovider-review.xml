@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites framework="testng" name="Data provider review demo">
+  <testsuite name="com.example.AuthTest">
+    <testcase classname="com.example.AuthTest" name="testUserLogin" time="0.00"><skipped/></testcase>
+    <testcase classname="com.example.AuthTest" name="testUserLogin" time="1.10" />
+    <testcase classname="com.example.AuthTest" name="testLockedAccount" time="0.00"><skipped/></testcase>
+  </testsuite>
+</testsuites>

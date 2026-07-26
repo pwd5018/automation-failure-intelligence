@@ -17,7 +17,9 @@ The application is an Express service serving a responsive static dashboard.
 
 ## Data contract
 
-The summary exposes logical total, passed, failed, errors, true skipped, flaky, and retry counts. A run can be marked failed when it contains either failed tests or errors. For explicit TestNG input, a repeated identity is one logical test with ordered attempts: a single skip is true skipped, `SKIPPED -> ... -> PASSED` is recovered/flaky, and a sequence ending in `FAILED`, `ERROR`, or exhausted `SKIPPED` is failed/error. Raw attempt statuses remain unchanged.
+The summary exposes logical total, passed, failed, errors, true skipped, flaky, retry, and needs-review counts. A run can be marked failed when it contains either failed tests or errors, and remains `UNKNOWN` when ambiguity requires review. For explicit TestNG input with retry metadata, repeated identities are greedily split into data-provider iterations and ordered attempts: a true skip closes one iteration, `SKIPPED -> ... -> PASSED` is recovered/flaky, and a sequence ending in `FAILED`, `ERROR`, or exhausted `SKIPPED` is failed/error. Raw attempt statuses remain unchanged.
+
+When repeated TestNG identities do not include retry metadata, or a skipped record lacks reliable true-skip/retry evidence, the parser does not guess. It creates one `NEEDS REVIEW` logical group containing every raw record, with observed pass/fail/error/skip counts. The dashboard can filter to these groups and expand their raw attempt history before a future detail surface adds richer iteration inspection.
 
 The parser also exposes basic report attributes and `<properties>` values as metadata. Empty but valid reports remain visible in preview as `UNKNOWN` with a quality quarantine; they are not persisted through the ingestion endpoint. Framework-specific interpretation remains outside the generic adapter.
 
@@ -30,7 +32,7 @@ The normalized schema is intentionally additive. New writes populate these colum
 
 ## Report quality
 
-`src/reportQuality.ts` classifies parsed reports as `ACCEPTED`, `ACCEPTED_WITH_WARNINGS`, or `QUARANTINED`. It warns on repeated identities and declared-count mismatches, while missing testcase names and empty reports are quarantined. Source records remain literal; only explicit TestNG input enables retry aggregation. Preview exposes the quality result; ingestion returns HTTP 422 for quarantined reports before persistence or failure-group creation.
+`src/reportQuality.ts` classifies parsed reports as `ACCEPTED`, `ACCEPTED_WITH_WARNINGS`, or `QUARANTINED`. It warns on repeated identities and declared-count mismatches, while missing testcase names and empty reports are quarantined. Source records remain literal; only explicit TestNG input with retry metadata enables retry/data-provider aggregation. Preview exposes the quality result; ingestion returns HTTP 422 for quarantined reports before persistence or failure-group creation.
 
 
 The separate `public/developer.html` workspace runs the Phase 5 API checks without cluttering the product dashboard. It is opened from the main dashboard in a new tab and is intended to grow with future diagnostics.

@@ -8,6 +8,7 @@ import { evaluateReportQuality, type ReportQuality } from "./reportQuality.js";
 
 type RawStatus = "PASSED" | "FAILED" | "SKIPPED" | "ERROR" | "UNKNOWN";
 type Status = "passed" | "failed" | "skipped" | "error" | "unknown";
+type SkipClassification = "TRUE_SKIP" | "RETRY_SKIP" | "UNKNOWN_SKIP";
 type RetryProfile = "NORMAL_SKIPPED_SEMANTICS" | "SKIPPED_THEN_TERMINAL_IS_RETRY";
 type SkippedPolicy = "COUNT_AS_SKIPPED" | "EXCLUDE_FROM_LOGICAL_TOTALS";
 type Classification = "product-defect" | "test-defect" | "environment-issue" | "test-data-issue" | "known-failure" | "duplicate" | "unknown";
@@ -29,12 +30,14 @@ type RawRecord = {
   identity: string;
   parameters?: string;
   rawStatus: RawStatus;
+  skipClassification?: SkipClassification;
   message?: string;
   stackTrace?: string;
   duration?: string;
   timestamp: string;
 };
 type Attempt = RawRecord & { attemptNumber: number; status: Status };
+type ObservedSummary = { total: number; passed: number; failed: number; errors: number; skipped: number };
 type LogicalTest = {
   id: string;
   identity: string;
@@ -47,6 +50,10 @@ type LogicalTest = {
   retryCount: number;
   flaky: boolean;
   recoveredAfterRetry: boolean;
+  observed: ObservedSummary;
+  dataProvider: boolean;
+  needsReview?: boolean;
+  reviewReason?: string;
 };
 type ReportMetadata = {
   framework?: string;
@@ -69,6 +76,7 @@ type Summary = {
   flaky: number;
   retryCount: number;
   recoveredAfterRetry: number;
+  needsReview: number;
 };
 type Provenance = {
   sourceType: string;
@@ -147,7 +155,24 @@ function statusOf(test: any): RawStatus { if (test.failure !== undefined) return
 function statusValue(status: RawStatus): Status { return status.toLowerCase() as Status; }
 function profile(value: unknown): RetryProfile { return value === "SKIPPED_THEN_TERMINAL_IS_RETRY" ? value : "NORMAL_SKIPPED_SEMANTICS"; }
 function skippedPolicy(value: unknown): SkippedPolicy { return value === "EXCLUDE_FROM_LOGICAL_TOTALS" ? value : "COUNT_AS_SKIPPED"; }
+function evidenceOf(test: any): { message: string; stack: string } | undefined { const node = test.failure ?? test.error ?? test.skipped; if (node === undefined) return undefined; const message = text(node["@_message"] || node["#text"] || "Automated test evidence"); return { message, stack: text(node["#text"] || message) }; }
 function failureOf(test: any): { message: string; stack: string } | undefined { const failure = test.failure ?? test.error; if (failure === undefined) return undefined; const message = text(failure["@_message"] || failure["#text"] || "Automated test failure"); return { message, stack: text(failure["#text"] || message) }; }
+function classifySkip(record: Pick<RawRecord, "rawStatus" | "message" | "stackTrace" | "duration">): SkipClassification | undefined {
+  if (record.rawStatus !== "SKIPPED") return undefined;
+  const evidence = `${record.message || ""} ${record.stackTrace || ""}`.toLowerCase();
+  if (/skipexception|depends?on|dependency|beforeclass|beforemethod|configuration|disabled account|not applicable/.test(evidence)) return "TRUE_SKIP";
+  if (/assertionerror|nosuchelement|nullpointer|retry|timed out|timeout/.test(evidence) || Number(record.duration || 0) >= 0.1) return "RETRY_SKIP";
+  return "UNKNOWN_SKIP";
+}
+function observedOf(records: RawRecord[]): ObservedSummary {
+  return {
+    total: records.length,
+    passed: records.filter(record => record.rawStatus === "PASSED").length,
+    failed: records.filter(record => record.rawStatus === "FAILED").length,
+    errors: records.filter(record => record.rawStatus === "ERROR").length,
+    skipped: records.filter(record => record.rawStatus === "SKIPPED").length
+  };
+}
 function signature(message: string, stack: string): string { return crypto.createHash("sha256").update(`${normalize(message)}|${normalize(stack).split(" at ")[0]}`).digest("hex").slice(0, 16); }
 
 function getConfig(metadata: Record<string, any>): RetryConfig {
@@ -179,8 +204,62 @@ function makeLogical(records: RawRecord[], isRetry: boolean, skippedPolicyValue:
     finalStatus,
     retryCount: isRetry ? records.length - 1 : 0,
     flaky: recovered,
-    recoveredAfterRetry: recovered
+    recoveredAfterRetry: recovered,
+    observed: observedOf(records),
+    dataProvider: records.some(record => record.parameters !== undefined)
   };
+}
+
+function makeReview(records: RawRecord[], reason: string): LogicalTest {
+  const attempts = records.map((record, index) => ({ ...record, attemptNumber: index + 1, status: statusValue(record.rawStatus) }));
+  return {
+    id: `test_${crypto.createHash("sha1").update(records.map(record => record.id).join("|")).digest("hex").slice(0, 12)}`,
+    identity: records[0].identity,
+    name: records[0].testName,
+    suite: records[0].suite,
+    className: records[0].className,
+    parameters: records[0].parameters,
+    attempts,
+    finalStatus: "unknown",
+    retryCount: 0,
+    flaky: false,
+    recoveredAfterRetry: false,
+    observed: observedOf(records),
+    dataProvider: records.some(record => record.parameters !== undefined) || records.length > 1,
+    needsReview: true,
+    reviewReason: reason
+  };
+}
+
+function aggregateTestNgGroup(records: RawRecord[], retryMetadataAvailable: boolean): LogicalTest[] {
+  if (records.length === 1) {
+    const logical = makeLogical(records, false, "COUNT_AS_SKIPPED");
+    return logical ? [logical] : [];
+  }
+  if (!retryMetadataAvailable) return [makeReview(records, "Retry metadata is missing; the repeated TestNG identity may contain multiple data-provider iterations or retries.")];
+
+  const logicalTests: LogicalTest[] = [];
+  let buffer: RawRecord[] = [];
+  const flush = (forceRetry = false): void => {
+    if (!buffer.length) return;
+    const logical = makeLogical(buffer, forceRetry || buffer.length > 1 || buffer[0].skipClassification === "RETRY_SKIP", "COUNT_AS_SKIPPED");
+    if (logical) logicalTests.push(logical);
+    buffer = [];
+  };
+
+  for (const record of records) {
+    if (record.rawStatus === "SKIPPED" && record.skipClassification === "TRUE_SKIP") {
+      flush();
+      const logical = makeLogical([record], false, "COUNT_AS_SKIPPED");
+      if (logical) logicalTests.push(logical);
+      continue;
+    }
+    if (record.rawStatus === "SKIPPED" && record.skipClassification === "UNKNOWN_SKIP") return [makeReview(records, "A skipped TestNG record lacks reliable retry or true-skip evidence.")];
+    buffer.push(record);
+    if (record.rawStatus !== "SKIPPED") flush();
+  }
+  flush();
+  return logicalTests;
 }
 
 function summarize(logicalTests: LogicalTest[], rawRecords: RawRecord[]): Summary {
@@ -194,7 +273,8 @@ function summarize(logicalTests: LogicalTest[], rawRecords: RawRecord[]): Summar
     skipped: logicalTests.filter(test => test.finalStatus === "skipped").length,
     flaky: logicalTests.filter(test => test.flaky).length,
     retryCount: logicalTests.reduce((count, test) => count + test.retryCount, 0),
-    recoveredAfterRetry: logicalTests.filter(test => test.recoveredAfterRetry).length
+    recoveredAfterRetry: logicalTests.filter(test => test.recoveredAfterRetry).length,
+    needsReview: logicalTests.filter(test => test.needsReview).length
   };
 }
 
@@ -259,10 +339,14 @@ function parseJUnit(xml: string, metadata: Record<string, any>): TestRun {
     const className = text(test["@_classname"] || suite["@_classname"] || "");
     const parameters = text(test["@_parameters"] || test["@_param"] || test["@_parameterId"] || test["@_dataProvider"] || test["@_dataProviderRowId"] || test["@_invocationId"] || test["@_browser"] || test["@_device"] || test["@_region"] || test["@_datasetId"] || "");
     const failure = failureOf(test);
+    const evidence = evidenceOf(test);
+    const rawStatus = statusOf(test);
     const identity = isTestNg
       ? `${normalize(className)}#${normalize(testName)}${parameters ? `#${normalize(parameters)}` : ""}`
       : [suitePath.join(" / "), className, testName, parameters].map(normalize).join("|");
-    rawRecords.push({ id: `raw_${++order}`, order, suite: suitePath.join(" / "), className, testName, identity, parameters: parameters || undefined, rawStatus: statusOf(test), message: failure?.message, stackTrace: failure?.stack, duration: text(test["@_time"]) || undefined, timestamp: new Date().toISOString() });
+    const rawRecord: RawRecord = { id: `raw_${++order}`, order, suite: suitePath.join(" / "), className, testName, identity, parameters: parameters || undefined, rawStatus, message: failure?.message || evidence?.message, stackTrace: failure?.stack || evidence?.stack, duration: text(test["@_time"]) || undefined, timestamp: new Date().toISOString() };
+    rawRecord.skipClassification = classifySkip(rawRecord);
+    rawRecords.push(rawRecord);
     }
     for (const child of asArray(suite?.testsuite)) visitSuite(child, suitePath);
   };
@@ -270,6 +354,7 @@ function parseJUnit(xml: string, metadata: Record<string, any>): TestRun {
   const logicalTests: LogicalTest[] = [];
   const warnings: string[] = [];
   if (adapter.warning) warnings.push(adapter.warning);
+  const retryMetadataAvailable = isTestNg && (bool(root?.["@_retryAnalyzer"]) || Object.entries(reportMetadata.properties).some(([name, value]) => /retry/.test(name.toLowerCase()) && bool(value)));
   const logicalRecords = isTestNg
     ? [...rawRecords.reduce((groups, record) => {
       const group = groups.get(record.identity) || [];
@@ -279,8 +364,12 @@ function parseJUnit(xml: string, metadata: Record<string, any>): TestRun {
     }, new Map<string, RawRecord[]>()).values()]
     : rawRecords.map(record => [record]);
   for (const records of logicalRecords) {
-    const logical = makeLogical(records, isTestNg && records.length > 1, "COUNT_AS_SKIPPED");
-    if (logical) logicalTests.push(logical);
+    if (!isTestNg) {
+      const logical = makeLogical(records, false, "COUNT_AS_SKIPPED");
+      if (logical) logicalTests.push(logical);
+    } else {
+      logicalTests.push(...aggregateTestNgGroup(records, retryMetadataAvailable));
+    }
   }
   const summary = summarize(logicalTests, rawRecords);
   if (rawRecords.length === 0) warnings.push("No testcase records were found in the report.");
@@ -291,7 +380,9 @@ function parseJUnit(xml: string, metadata: Record<string, any>): TestRun {
     return false;
   });
   if (hasRepeatedIdentity) warnings.push(isTestNg
-    ? "Repeated TestNG test identities were aggregated as ordered retry attempts; raw records remain available in the attempt history."
+    ? retryMetadataAvailable
+      ? "Repeated TestNG test identities were aggregated as ordered retry attempts; raw records remain available in the attempt history."
+      : "Repeated TestNG test identities need review because retry metadata was not available; raw records remain available in the attempt history."
     : "Repeated test identities are shown as separate reported results; no retry inference is applied.");
   const quality = evaluateReportQuality({ rawRecords, reportMetadata, summary, retryAggregationApplied: isTestNg });
   for (const issue of quality.issues) if (!warnings.includes(issue.message)) warnings.push(issue.message);
@@ -310,7 +401,8 @@ function parseJUnit(xml: string, metadata: Record<string, any>): TestRun {
     environment,
     ingestedAt
   };
-  return { id, projectId, build, environment, adapter: adapter.id, adapterVersion: "0.6.0", configurationVersion: config.version, retryAnalyzerEnabled: config.retryAnalyzerEnabled, maxRetries: config.maxRetries, retryReportingProfile: config.skippedSequencePolicy, skippedLogicalTestPolicy: config.ordinarySkippedPolicy, ingestedAt, provenance, rawReport: xml, reportMetadata, warnings, rawRecords, logicalTests, summary, quality, resultStatus: summary.failed || summary.errors ? "FAILED" : rawRecords.length ? "PASSED" : "UNKNOWN", processingStatus: warnings.length ? "WARNING" : "COMPLETE" };
+  const resultStatus = summary.failed || summary.errors ? "FAILED" : summary.needsReview ? "UNKNOWN" : rawRecords.length ? "PASSED" : "UNKNOWN";
+  return { id, projectId, build, environment, adapter: adapter.id, adapterVersion: "0.6.0", configurationVersion: config.version, retryAnalyzerEnabled: config.retryAnalyzerEnabled, maxRetries: config.maxRetries, retryReportingProfile: config.skippedSequencePolicy, skippedLogicalTestPolicy: config.ordinarySkippedPolicy, ingestedAt, provenance, rawReport: xml, reportMetadata, warnings, rawRecords, logicalTests, summary, quality, resultStatus, processingStatus: warnings.length ? "WARNING" : "COMPLETE" };
 }
 
 function addFailureGroup(run: TestRun, test: LogicalTest): void {
@@ -364,7 +456,7 @@ function publicResultDetail(run: TestRun, test: LogicalTest): { run: Record<stri
     result: test
   };
 }
-function preview(run: TestRun) { return { runId: run.id, projectId: run.projectId, build: run.build, environment: run.environment, adapter: run.adapter, adapterVersion: run.adapterVersion, reportMetadata: run.reportMetadata, retryAnalyzerEnabled: run.retryAnalyzerEnabled, maxRetries: run.maxRetries, retryReportingProfile: run.retryReportingProfile, provenance: run.provenance, quality: run.quality, warnings: run.warnings, summary: run.summary, resultStatus: run.resultStatus, processingStatus: run.processingStatus, logicalTests: run.logicalTests.map(test => ({ name: test.name, suite: test.suite, className: test.className, parameters: test.parameters, finalStatus: test.finalStatus, attempts: test.attempts.map(attempt => ({ attemptNumber: attempt.attemptNumber, rawStatus: attempt.rawStatus, status: attempt.status })), retryCount: test.retryCount, flaky: test.flaky, recoveredAfterRetry: test.recoveredAfterRetry })) }; }
+function preview(run: TestRun) { return { runId: run.id, projectId: run.projectId, build: run.build, environment: run.environment, adapter: run.adapter, adapterVersion: run.adapterVersion, reportMetadata: run.reportMetadata, retryAnalyzerEnabled: run.retryAnalyzerEnabled, maxRetries: run.maxRetries, retryReportingProfile: run.retryReportingProfile, provenance: run.provenance, quality: run.quality, warnings: run.warnings, summary: run.summary, resultStatus: run.resultStatus, processingStatus: run.processingStatus, logicalTests: run.logicalTests.map(test => ({ name: test.name, suite: test.suite, className: test.className, parameters: test.parameters, finalStatus: test.finalStatus, attempts: test.attempts.map(attempt => ({ attemptNumber: attempt.attemptNumber, rawStatus: attempt.rawStatus, status: attempt.status })), retryCount: test.retryCount, flaky: test.flaky, recoveredAfterRetry: test.recoveredAfterRetry, observed: test.observed, dataProvider: test.dataProvider, needsReview: test.needsReview, reviewReason: test.reviewReason })) }; }
 
 function applyStoredState(state: { runs: any[]; groups: any[] }): void {
   runs.clear();
@@ -477,7 +569,9 @@ app.post("/api/demo/seed", async (req, res) => {
   const body = req.body || {};
   await clearDemoData();
   const reports = [
-    { id: "demo-testng-basic", build: "demo-testng-basic", xml: `<?xml version="1.0" encoding="UTF-8"?><testsuites framework="testng" name="TestNG JUnit demo" tests="5" failures="2" skipped="1"><testsuite name="com.example.LoginTest"><testcase classname="com.example.LoginTest" name="validLogin" time="0.021"/><testcase classname="com.example.LoginTest" name="invalidPassword" time="0.014"><failure message="expected login rejection">java.lang.AssertionError: expected login rejection</failure></testcase><testcase classname="com.example.LoginTest" name="lockedAccount" time="0.000"><skipped message="disabled account fixture"/></testcase><testcase classname="com.example.LoginTest" name="retrySkipThenPass" time="0.010"><skipped message="TestNG retry handoff"/></testcase><testcase classname="com.example.LoginTest" name="retrySkipThenPass" time="0.018"/><testcase classname="com.example.LoginTest" name="retrySkipExhausted" time="0.010"><skipped message="TestNG retry handoff"/></testcase><testcase classname="com.example.LoginTest" name="retrySkipExhausted" time="0.012"><skipped message="retry limit reached"/></testcase></testsuite></testsuites>` }
+    { id: "demo-testng-basic", build: "demo-testng-basic", xml: `<?xml version="1.0" encoding="UTF-8"?><testsuites framework="testng" name="TestNG JUnit demo" tests="5" failures="2" skipped="1"><properties><property name="retryAnalyzer" value="true"/></properties><testsuite name="com.example.LoginTest"><testcase classname="com.example.LoginTest" name="validLogin" time="0.021"/><testcase classname="com.example.LoginTest" name="invalidPassword" time="0.014"><failure message="expected login rejection">java.lang.AssertionError: expected login rejection</failure></testcase><testcase classname="com.example.LoginTest" name="lockedAccount" time="0.000"><skipped message="disabled account fixture"/></testcase><testcase classname="com.example.LoginTest" name="retrySkipThenPass" time="0.010"><skipped message="TestNG retry handoff"/></testcase><testcase classname="com.example.LoginTest" name="retrySkipThenPass" time="0.018"/><testcase classname="com.example.LoginTest" name="retrySkipExhausted" time="0.010"><skipped message="TestNG retry handoff"/></testcase><testcase classname="com.example.LoginTest" name="retrySkipExhausted" time="0.012"><skipped message="retry limit reached"/></testcase></testsuite></testsuites>` },
+    { id: "demo-testng-dataprovider-collapse", build: "demo-testng-dataprovider-collapse", xml: `<?xml version="1.0" encoding="UTF-8"?><testsuites framework="testng" name="Data provider retry demo"><properties><property name="retryAnalyzer" value="true"/></properties><testsuite name="com.example.AuthTest"><testcase classname="com.example.AuthTest" name="testUserLogin" parameters="user=alice" time="1.20"><skipped message="AssertionError: retry handoff">java.lang.AssertionError: Timed out waiting for login response</skipped></testcase><testcase classname="com.example.AuthTest" name="testUserLogin" parameters="user=alice" time="1.25"/><testcase classname="com.example.AuthTest" name="testUserLogin" parameters="user=bob" time="0.002"><skipped message="org.testng.SkipException: account disabled"/></testcase><testcase classname="com.example.AuthTest" name="testUserLogin" parameters="user=carol" time="1.10"/></testsuite></testsuites>` },
+    { id: "demo-testng-dataprovider-review", build: "demo-testng-dataprovider-review", xml: `<?xml version="1.0" encoding="UTF-8"?><testsuites framework="testng" name="Data provider review demo"><testsuite name="com.example.AuthTest"><testcase classname="com.example.AuthTest" name="testUserLogin" time="0.00"><skipped/></testcase><testcase classname="com.example.AuthTest" name="testUserLogin" time="1.10"/><testcase classname="com.example.AuthTest" name="testLockedAccount" time="0.00"><skipped/></testcase></testsuite></testsuites>` }
   ];
   const ingested = [];
   for (const report of reports) ingested.push(await ingest(parseJUnit(report.xml, { projectId: body.projectId || "default", build: report.build, environment: "demo", externalRunId: report.id, sourceType: "demo", sourceName: report.id })));
