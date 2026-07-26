@@ -316,6 +316,9 @@ test("dashboard source renders adapter and report metadata fields", async () => 
   assert.match(dashboard, /Adapter/);
   assert.match(dashboard, /Properties/);
   assert.match(dashboard, /run\.warnings/);
+  assert.match(dashboard, /Result definitions/);
+  assert.match(dashboard, /retry attempts are retained inside the result history/);
+  assert.match(dashboard, /Attempt history/);
   assert.match(dashboard, /developer\.html/);
   assert.doesNotMatch(dashboard, /async function devAll\(\)/);
 });

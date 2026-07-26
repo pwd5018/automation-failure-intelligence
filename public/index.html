@@ -180,6 +180,20 @@
             margin-top: 4px
         }
 
+        .summary-definitions {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 8px 14px;
+            margin-top: 14px;
+            color: #67738a;
+            font-size: 12px;
+            line-height: 1.4
+        }
+
+        .summary-definitions b {
+            color: #38445d
+        }
+
         .run-grid {
             display: grid;
             grid-template-columns:1.05fr .95fr;
@@ -359,6 +373,38 @@
             color: #91620a
         }
 
+        .attempt-history {
+            display: flex;
+            gap: 5px;
+            align-items: center;
+            justify-content: flex-end;
+            flex-wrap: wrap;
+            margin-top: 6px;
+            color: #657087;
+            font-size: 11px
+        }
+
+        .attempt-history .attempt {
+            border: 1px solid #dfe4ef;
+            border-radius: 999px;
+            padding: 4px 7px;
+            background: #fff
+        }
+
+        .attempt-history .attempt.failed, .attempt-history .attempt.error {
+            border-color: #f2b8b5;
+            color: #b42318
+        }
+
+        .attempt-history .attempt.skipped {
+            border-color: #efd79c;
+            color: #91620a
+        }
+
+        .attempt-arrow {
+            color: #9aa4b5
+        }
+
         .detail {
             margin-top: 18px
         }
@@ -486,6 +532,10 @@
             .summary-title {
                 font-size: 24px
             }
+
+            .summary-definitions {
+                grid-template-columns: 1fr
+            }
         }
     </style>
 </head>
@@ -521,6 +571,14 @@
             <div class="metric"><span>Skipped</span><b id="skippedCount">0</b></div>
             <div class="metric"><span>Retries</span><b id="retryCount">0</b></div>
             <div class="metric"><span>Flaky</span><b id="flakyCount">0</b></div>
+        </div>
+        <div class="summary-definitions" aria-label="Result definitions">
+            <span><b>Total</b> logical tests; reruns are excluded.</span>
+            <span><b>Skipped</b> tests with one true skip record.</span>
+            <span><b>Retries</b> additional attempts after the first.</span>
+            <span><b>Flaky</b> tests that passed after a retry.</span>
+            <span><b>Failed</b> tests whose final attempt failed.</span>
+            <span><b>Errors</b> tests whose final attempt errored.</span>
         </div>
         <div id="summaryNote"></div>
     </section>
@@ -614,10 +672,12 @@
         const query = normalize($('testSearch').value);
         const filtered = tests.filter(test => (!status || test.finalStatus === status) && (!query || normalize([test.name, test.className, test.suite].join(' ')).includes(query)));
         $('testResults').innerHTML = filtered.length ? filtered.map(test => {
-            const attempt = Array.isArray(test.attempts) ? test.attempts[0] : null;
-            const value = String(test.finalStatus || attempt?.status || 'unknown').toLowerCase();
-            const evidence = attempt?.message ? '<div class="test-meta">' + esc(attempt.message) + '</div>' : '';
-            return '<div id="test-' + esc(test.id) + '" class="test-row"><div><div class="test-name">' + esc(test.name) + '</div><div class="test-meta">' + esc(test.className || test.suite || '') + ' - Reported directly by the source XML</div>' + evidence + '</div><div class="test-history"><span class="' + esc(value) + '">' + esc(value.toUpperCase()) + '</span></div></div>'
+            const attempts = Array.isArray(test.attempts) && test.attempts.length ? test.attempts : [];
+            const finalAttempt = attempts[attempts.length - 1];
+            const value = String(test.finalStatus || finalAttempt?.status || 'unknown').toLowerCase();
+            const evidence = finalAttempt?.message ? '<div class="test-meta">' + esc(finalAttempt.message) + '</div>' : '';
+            const history = attempts.length > 1 ? '<div class="attempt-history" aria-label="Attempt history">' + attempts.map((attempt, index) => '<span class="attempt ' + esc(String(attempt.rawStatus || attempt.status || '').toLowerCase()) + '" title="' + esc(attempt.message || '') + '">Attempt ' + (index + 1) + ': ' + esc(String(attempt.rawStatus || attempt.status || 'UNKNOWN').toUpperCase()) + '</span>').join('<span class="attempt-arrow" aria-hidden="true">→</span>') + '</div>' : '';
+            return '<div id="test-' + esc(test.id) + '" class="test-row"><div><div class="test-name">' + esc(test.name) + '</div><div class="test-meta">' + esc(test.className || test.suite || '') + ' - Reported directly by the source XML</div>' + evidence + '</div><div class="test-history"><span class="' + esc(value) + '">' + esc(value.toUpperCase()) + '</span>' + history + '</div></div>'
         }).join('') : '<p class="muted">No matching test results.</p>';
     }
 
