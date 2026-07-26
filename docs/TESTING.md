@@ -20,6 +20,7 @@ Use [GITHUB_WORKFLOW.md](GITHUB_WORKFLOW.md) to publish completed changes throug
 - The dashboard displays adapter identity, report metadata, properties, and parser warnings.
 - All registered adapters have explicit-metadata fixtures; root metadata precedence and unknown fallback are covered.
 - TestNG true skips, retry skips, recovered retries, exhausted retries, and parameterized retry identities.
+- TestNG data-provider identities with explicit retry metadata collapse into logical iterations; metadata-poor repeated identities become `NEEDS REVIEW` with observed counts and raw history.
 - Run search and status filters.
 - Storage health reporting.
 - Duplicate ingestion behavior.
@@ -35,7 +36,7 @@ Use [GITHUB_WORKFLOW.md](GITHUB_WORKFLOW.md) to publish completed changes throug
 ## Vercel smoke test
 
 1. Open `/api/health` and confirm `storage` is `postgres`.
-2. Load the stable TestNG JUnit demo run and inspect its passed, failed, and skipped results.
+2. Load the TestNG JUnit demo pack and inspect the basic run, the collapsible data-provider run, and the needs-review data-provider run.
 3. Confirm the run appears in history.
 4. Refresh the dashboard.
 5. Trigger a redeploy.

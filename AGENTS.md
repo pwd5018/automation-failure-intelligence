@@ -43,5 +43,5 @@ Check the deployed application with `/api/health`. It must report `storage: "pos
 - Keep labels aligned with source XML semantics.
 - Add a fixture and regression test for new parser behavior.
 - Update `ROADMAP.md` when a phase materially changes.
-- Do not add retry interpretation without explicit framework metadata.
+- Do not add retry interpretation without explicit framework metadata. For repeated TestNG identities without retry metadata, preserve the raw records in a `NEEDS REVIEW` group and expose observed counts instead of guessing retries or data-provider iterations.
 

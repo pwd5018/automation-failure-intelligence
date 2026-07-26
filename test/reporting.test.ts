@@ -39,36 +39,48 @@ test("raw results are counted exactly as reported", async () => {
   assert.match(result.run.warnings[0], /Repeated test identities/);
 });
 
-test("demo pack provides one simple TestNG JUnit run", async () => {
+test("demo pack provides basic, collapsible, and review TestNG JUnit runs", async () => {
   const response = await fetch(`${baseUrl}/api/demo/seed`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({}) });
   const result = await response.json() as any;
   assert.equal(response.status, 200);
   assert.equal(result.scenario, "demo-pack");
-  assert.equal(result.runs.length, 1);
-  assert.equal(result.preview.summary.rawTestcaseRecords, 7);
-  assert.equal(result.preview.summary.logicalTests, 5);
-  assert.equal(result.preview.summary.passed, 2);
-  assert.equal(result.preview.summary.failed, 2);
-  assert.equal(result.preview.summary.errors, 0);
-  assert.equal(result.preview.summary.skipped, 1);
-  assert.equal(result.preview.summary.flaky, 1);
-  assert.equal(result.preview.summary.retryCount, 2);
-  assert.equal(result.run.provenance.sourceType, "demo");
-  assert.equal(result.run.provenance.sourceName, "demo-testng-basic");
-  assert.equal(result.run.adapter, "testng");
-  assert.equal(new Set(result.run.logicalTests.map((test: any) => test.name)).size, 5);
-  const recovered = result.run.logicalTests.find((test: any) => test.name === "retrySkipThenPass");
+  assert.equal(result.runs.length, 3);
+  const basic = result.runs.find((run: any) => run.build === "demo-testng-basic");
+  assert.equal(basic.summary.rawTestcaseRecords, 7);
+  assert.equal(basic.summary.logicalTests, 5);
+  assert.equal(basic.summary.passed, 2);
+  assert.equal(basic.summary.failed, 2);
+  assert.equal(basic.summary.errors, 0);
+  assert.equal(basic.summary.skipped, 1);
+  assert.equal(basic.summary.flaky, 1);
+  assert.equal(basic.summary.retryCount, 2);
+  assert.equal(basic.provenance.sourceType, "demo");
+  assert.equal(basic.provenance.sourceName, "demo-testng-basic");
+  assert.equal(basic.adapter, "testng");
+  assert.equal(new Set(basic.logicalTests.map((test: any) => test.name)).size, 5);
+  const recovered = basic.logicalTests.find((test: any) => test.name === "retrySkipThenPass");
   assert.equal(recovered.attempts.length, 2);
   assert.equal(recovered.attempts[0].rawStatus, "SKIPPED");
   assert.equal(recovered.finalStatus, "passed");
   assert.equal(recovered.flaky, true);
-  const exhausted = result.run.logicalTests.find((test: any) => test.name === "retrySkipExhausted");
+  const exhausted = basic.logicalTests.find((test: any) => test.name === "retrySkipExhausted");
   assert.equal(exhausted.finalStatus, "failed");
   assert.equal(exhausted.attempts[1].rawStatus, "SKIPPED");
-  const groups = await (await fetch(`${baseUrl}/api/failure-groups?runId=${result.run.id}`)).json() as any[];
+  const groups = await (await fetch(`${baseUrl}/api/failure-groups?runId=${basic.id}`)).json() as any[];
   assert.equal(groups.length, 0);
-  const searchedGroups = await (await fetch(`${baseUrl}/api/failure-groups?runId=${result.run.id}&q=checkout`)).json() as any[];
+  const searchedGroups = await (await fetch(`${baseUrl}/api/failure-groups?runId=${basic.id}&q=checkout`)).json() as any[];
   assert.equal(searchedGroups.length, 0);
+  const collapse = result.runs.find((run: any) => run.build === "demo-testng-dataprovider-collapse");
+  assert.equal(collapse.summary.logicalTests, 3);
+  assert.equal(collapse.summary.passed, 2);
+  assert.equal(collapse.summary.skipped, 1);
+  assert.equal(collapse.summary.retryCount, 1);
+  assert.equal(collapse.summary.needsReview, 0);
+  const review = result.runs.find((run: any) => run.build === "demo-testng-dataprovider-review");
+  assert.equal(review.summary.logicalTests, 2);
+  assert.equal(review.summary.needsReview, 1);
+  assert.equal(review.logicalTests.find((test: any) => test.needsReview).observed.passed, 1);
+  assert.equal(review.logicalTests.find((test: any) => test.needsReview).observed.skipped, 1);
 });
 
 test("TestNG distinguishes true skips from retry skips and counts logical tests", async () => {
@@ -317,6 +329,10 @@ test("dashboard source renders adapter and report metadata fields", async () => 
   assert.match(dashboard, /Properties/);
   assert.match(dashboard, /run\.warnings/);
   assert.match(dashboard, /Result definitions/);
+  assert.match(dashboard, /needsReviewMetric/);
+  assert.match(dashboard, /needs-review/);
+  assert.match(dashboard, /Observed records/);
+  assert.match(dashboard, /NEEDS REVIEW/);
   assert.match(dashboard, /retry attempts are retained inside the result history/);
   assert.match(dashboard, /Attempt history/);
   assert.match(dashboard, /developer\.html/);

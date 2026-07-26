@@ -8,7 +8,7 @@ Automation Failure Intelligence is a private QA-triage workspace for understandi
 
 - Truthful raw-result reporting is active.
 - `PASSED`, `FAILED`, `ERROR`, and `SKIPPED` remain distinct source outcomes.
-- The current demo uses unique test names and does not simulate parameterized tests.
+- The demo pack now includes a TestNG data-provider run that can be collapsed with explicit retry metadata and a metadata-poor run that is surfaced for review.
 - Retry and flaky inference are disabled.
 - A stable one-run TestNG-style JUnit demo pack and mock JUnit fixtures are available.
 - Supabase/Postgres persistence is active in Vercel with an in-memory local fallback.
@@ -20,6 +20,7 @@ Automation Failure Intelligence is a private QA-triage workspace for understandi
 - Phase 5 Slice 2 adds explicit source provenance to run responses and normalized Postgres metadata: source type/name, external run ID, project/build/environment, ingestion timestamp, and content hash.
 - Phase 6 Slice 1 adds a focused read-only testcase-detail endpoint that returns one source result with run provenance while excluding the raw XML payload.
 - TestNG retry/skip slice adds explicit TestNG identity aggregation, true-skip classification, ordered attempt history, logical totals, flaky recovery, and retry counts.
+- Phase 6 data-provider slice adds explicit metadata collapse, an ambiguity-safe needs-review fallback, observed pass/fail/error/skip counts for review groups, and demo fixtures for both routes.
 
 ## Phases
 
@@ -80,11 +81,12 @@ Before accepting externally ingested reports, establish a clean and trustworthy 
 
 External CI/webhook ingestion remains a later phase and begins only after the Phase 5 quality gate and Phase 6 investigation-workspace gate pass.
 
-### Phase 6 - Test detail investigation workspace (planned)
+### Phase 6 - Test detail investigation workspace (in progress)
 
 Add a focused result-detail surface for investigating one reported testcase at a time:
 
 - Slice 1 (implemented): `GET /api/test-runs/:runId/results/:testId` returns source name, suite, class, parameters, source order, status, duration, failure/error evidence, provenance, and explicit attempt data without returning raw XML.
+- Data-provider slice (implemented): metadata-rich repeated identities collapse into iterations/attempts; metadata-poor or ambiguous repeated identities remain grouped as `NEEDS REVIEW` with raw records and observed counts.
 - Remaining slices: add the dashboard detail surface, connect failure-group evidence to it, and complete mobile/Vercel validation.
 - Mobile-friendly navigation from the run workspace and failure evidence.
 - Preserve the exact source contract and keep the main dashboard lightweight.

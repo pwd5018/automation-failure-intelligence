@@ -180,6 +180,21 @@
             margin-top: 4px
         }
 
+        .metric-link {
+            border: 0;
+            color: inherit;
+            text-align: left;
+            cursor: pointer;
+            font: inherit;
+            font-weight: inherit;
+            background: #f7f8fc;
+            padding: 12px
+        }
+
+        .metric-link:hover {
+            background: #eef0ff
+        }
+
         .summary-definitions {
             display: grid;
             grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -571,6 +586,7 @@
             <div class="metric"><span>Skipped</span><b id="skippedCount">0</b></div>
             <div class="metric"><span>Retries</span><b id="retryCount">0</b></div>
             <div class="metric"><span>Flaky</span><b id="flakyCount">0</b></div>
+            <button id="needsReviewMetric" class="metric metric-link" type="button"><span>Needs review</span><b id="needsReviewCount">0</b></button>
         </div>
         <div class="summary-definitions" aria-label="Result definitions">
             <span><b>Total</b> logical tests; reruns are excluded.</span>
@@ -579,6 +595,7 @@
             <span><b>Flaky</b> tests that passed after a retry.</span>
             <span><b>Failed</b> tests whose final attempt failed.</span>
             <span><b>Errors</b> tests whose final attempt errored.</span>
+            <span><b>Needs review</b> ambiguous groups kept as raw records.</span>
         </div>
         <div id="summaryNote"></div>
     </section>
@@ -604,6 +621,7 @@
                 <option value="failed">Failed</option>
                 <option value="error">Error</option>
                 <option value="skipped">Skipped</option>
+                <option value="needs-review">Needs review</option>
             </select><input id="testSearch" placeholder="Search tests, classes, or parameters"
                             aria-label="Search test results"></div>
             <div id="testResults" class="test-results"><p class="muted">No test results loaded yet.</p></div>
@@ -648,11 +666,12 @@
         const errors = s.errors || 0;
         const passed = s.passed || 0;
         const skipped = s.skipped || 0;
+        const needsReview = s.needsReview || 0;
         const metadata = run.reportMetadata || {};
         const properties = Object.entries(metadata.properties || {}).map(([key, value]) => '<div class="metadata-row"><span class="metadata-label">' + esc(key) + '</span><span>' + esc(value) + '</span></div>').join('');
         const reportDetails = [metadata.name && '<div class="metadata-row"><span class="metadata-label">Report</span><span>' + esc(metadata.name) + '</span></div>', metadata.tests && '<div class="metadata-row"><span class="metadata-label">Declared tests</span><span>' + esc(metadata.tests) + '</span></div>', metadata.failures && '<div class="metadata-row"><span class="metadata-label">Declared failures</span><span>' + esc(metadata.failures) + '</span></div>', metadata.errors && '<div class="metadata-row"><span class="metadata-label">Declared errors</span><span>' + esc(metadata.errors) + '</span></div>', metadata.skipped && '<div class="metadata-row"><span class="metadata-label">Declared skipped</span><span>' + esc(metadata.skipped) + '</span></div>', metadata.time && '<div class="metadata-row"><span class="metadata-label">Declared time</span><span>' + esc(metadata.time) + '</span></div>'].filter(Boolean).join('');
         $('summaryTitle').textContent = run.resultStatus === 'FAILED' ? 'Run has failures' : run.resultStatus === 'PASSED' ? 'Run passed' : 'No results';
-        $('summaryCopy').textContent = (s.logicalTests || 0) + ' tests reported: ' + passed + ' passed, ' + failed + ' failed, ' + errors + ' errors, ' + skipped + ' true skipped, ' + (s.retryCount || 0) + ' retries.';
+        $('summaryCopy').textContent = (s.logicalTests || 0) + ' tests reported: ' + passed + ' passed, ' + failed + ' failed, ' + errors + ' errors, ' + skipped + ' true skipped, ' + (s.retryCount || 0) + ' retries, ' + needsReview + ' needs review.';
         $('summaryBadges').innerHTML = '<span class="status ' + String(run.resultStatus || '').toLowerCase() + '">' + esc(run.resultStatus) + '</span> <span class="status ' + (run.processingStatus === 'WARNING' ? 'warning' : '') + '">' + esc(run.processingStatus) + '</span>';
         $('logicalCount').textContent = s.logicalTests || 0;
         $('passedCount').textContent = passed;
@@ -661,6 +680,7 @@
         $('skippedCount').textContent = skipped;
         $('retryCount').textContent = s.retryCount || 0;
         $('flakyCount').textContent = s.flaky || 0;
+        $('needsReviewCount').textContent = needsReview;
         $('summaryNote').innerHTML = run.warnings?.length ? '<div class="notice"><b>Reporting note</b><ul>' + run.warnings.map(w => '<li>' + esc(w) + '</li>').join('') + '</ul></div>' : '';
         $('runInfo').innerHTML = '<div class="muted">' + esc(run.projectId) + ' - ' + esc(run.build || 'local') + ' - ' + esc(run.environment || 'default') + '</div><div class="metadata"><div class="metadata-row"><span class="metadata-label">Adapter</span><span>' + esc(run.adapter || 'junit-generic') + ' ' + esc(run.adapterVersion || '') + '</span></div>' + reportDetails + (properties ? '<div class="metadata-row"><span class="metadata-label">Properties</span><span>' + properties + '</span></div>' : '') + '</div><p>Source: <b>JUnit XML</b> - Each testcase is shown exactly as reported.</p><div class="muted">Ingested ' + esc(run.ingestedAt || '') + '</div>';
         renderTests();
@@ -670,14 +690,15 @@
         const tests = currentRun?.logicalTests || [];
         const status = normalize($('testStatus').value);
         const query = normalize($('testSearch').value);
-        const filtered = tests.filter(test => (!status || test.finalStatus === status) && (!query || normalize([test.name, test.className, test.suite].join(' ')).includes(query)));
+        const filtered = tests.filter(test => (!status || (status === 'needs-review' ? test.needsReview : test.finalStatus === status)) && (!query || normalize([test.name, test.className, test.suite].join(' ')).includes(query)));
         $('testResults').innerHTML = filtered.length ? filtered.map(test => {
             const attempts = Array.isArray(test.attempts) && test.attempts.length ? test.attempts : [];
             const finalAttempt = attempts[attempts.length - 1];
             const value = String(test.finalStatus || finalAttempt?.status || 'unknown').toLowerCase();
             const evidence = finalAttempt?.message ? '<div class="test-meta">' + esc(finalAttempt.message) + '</div>' : '';
-            const history = attempts.length > 1 ? '<div class="attempt-history" aria-label="Attempt history">' + attempts.map((attempt, index) => '<span class="attempt ' + esc(String(attempt.rawStatus || attempt.status || '').toLowerCase()) + '" title="' + esc(attempt.message || '') + '">Attempt ' + (index + 1) + ': ' + esc(String(attempt.rawStatus || attempt.status || 'UNKNOWN').toUpperCase()) + '</span>').join('<span class="attempt-arrow" aria-hidden="true">→</span>') + '</div>' : '';
-            return '<div id="test-' + esc(test.id) + '" class="test-row"><div><div class="test-name">' + esc(test.name) + '</div><div class="test-meta">' + esc(test.className || test.suite || '') + ' - Reported directly by the source XML</div>' + evidence + '</div><div class="test-history"><span class="' + esc(value) + '">' + esc(value.toUpperCase()) + '</span>' + history + '</div></div>'
+            const history = attempts.length > 1 || test.needsReview ? '<div class="attempt-history" aria-label="Attempt history">' + attempts.map((attempt, index) => '<span class="attempt ' + esc(String(attempt.rawStatus || attempt.status || '').toLowerCase()) + '" title="' + esc(attempt.message || '') + '">Attempt ' + (index + 1) + ': ' + esc(String(attempt.rawStatus || attempt.status || 'UNKNOWN').toUpperCase()) + '</span>').join('<span class="attempt-arrow" aria-hidden="true">→</span>') + '</div>' : '';
+            const observed = test.needsReview && test.observed ? '<div class="test-meta">Observed records: ' + test.observed.passed + ' passed, ' + test.observed.failed + ' failed, ' + test.observed.errors + ' errors, ' + test.observed.skipped + ' skipped</div><div class="test-meta">' + esc(test.reviewReason || 'Sequence needs review') + '</div>' : '';
+            return '<div id="test-' + esc(test.id) + '" class="test-row"><div><div class="test-name">' + esc(test.name) + '</div><div class="test-meta">' + esc(test.className || test.suite || '') + ' - Reported directly by the source XML</div>' + observed + evidence + '</div><div class="test-history"><span class="' + esc(value) + '">' + esc(test.needsReview ? 'NEEDS REVIEW' : value.toUpperCase()) + '</span>' + history + '</div></div>'
         }).join('') : '<p class="muted">No matching test results.</p>';
     }
 
@@ -806,6 +827,11 @@
     $('preview').onclick = preview;
     $('upload').onclick = upload;
     $('demo').onclick = demo;
+    $('needsReviewMetric').onclick = () => {
+        $('testStatus').value = 'needs-review';
+        renderTests();
+        document.getElementById('testResults')?.scrollIntoView({behavior: 'smooth', block: 'start'});
+    };
     $('demo').textContent = 'Load demo runs';
     $('testSearch').placeholder = 'Search tests or classes';
     $('list').parentElement.querySelector('p').textContent = 'Failures and errors reported by the selected run.';

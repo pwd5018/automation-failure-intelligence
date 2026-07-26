@@ -21,14 +21,15 @@ The current model is intentionally simple and truthful. The active ingestion pat
 - `PASSED` counts as passed.
 - `FAILED` and `ERROR` count as failed.
 - `FAILED` and `ERROR` are exposed as separate summary counts.
-- A single `SKIPPED` is a true skip; repeated TestNG `SKIPPED` records are retry attempts.
+- A single `SKIPPED` is a true skip. With explicit TestNG retry metadata, repeated identities are split into data-provider iterations and retry attempts.
+- Without that metadata, repeated identities are not collapsed: they become one `NEEDS REVIEW` group containing raw records and observed pass/fail/error/skip counts.
 - A retry sequence ending in `PASSED` is flaky and passed; a sequence ending in `FAILED`, `ERROR`, or exhausted `SKIPPED` is not flaky and is failed/error.
 - Retry count is the number of additional attempts beyond the first logical test record.
 - Failure groups appear in a selected run only when at least two failed/error tests share a signature.
 
 ## Dashboard demos
 
-The dashboard loads one stable TestNG-style JUnit demo run with true skips, a recovered retry, and an exhausted retry. The `Load demo runs` button replaces older demo runs before loading this pack. Demo data is separate from the TestNG JUnit ingestion path.
+The dashboard loads three stable TestNG-style JUnit demo runs: a basic retry/skip run, a metadata-rich data-provider run that collapses into iterations, and a metadata-poor data-provider run that needs review. The `Load demo runs` button replaces older demo runs before loading this pack. Demo data is separate from the TestNG JUnit ingestion path.
 
 The test suite includes malformed, parameterized, nested, empty, large-report, TestNG true-skip, and TestNG retry-skip fixtures. The dashboard reports source statuses directly and exposes retry attempts under one logical result.
 

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites framework="testng" name="Data provider retry demo">
+  <properties><property name="retryAnalyzer" value="true" /></properties>
+  <testsuite name="com.example.AuthTest">
+    <testcase classname="com.example.AuthTest" name="testUserLogin" parameters="user=alice" time="1.20">
+      <skipped message="AssertionError: retry handoff">java.lang.AssertionError: Timed out waiting for login response</skipped>
+    </testcase>
+    <testcase classname="com.example.AuthTest" name="testUserLogin" parameters="user=alice" time="1.25" />
+    <testcase classname="com.example.AuthTest" name="testUserLogin" parameters="user=bob" time="0.002">
+      <skipped message="org.testng.SkipException: account disabled" />
+    </testcase>
+    <testcase classname="com.example.AuthTest" name="testUserLogin" parameters="user=carol" time="1.10" />
+  </testsuite>
+</testsuites>
