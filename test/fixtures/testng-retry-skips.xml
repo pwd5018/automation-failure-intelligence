@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites framework="testng">
+  <testsuite name="com.example.AuthTest">
+    <testcase classname="com.example.AuthTest" name="testUserLogin" time="1.20">
+      <skipped message="TestNG retry handoff">java.lang.AssertionError: Timed out waiting for login response</skipped>
+    </testcase>
+    <testcase classname="com.example.AuthTest" name="testUserLogin" time="1.25" />
+    <testcase classname="com.example.AuthTest" name="testLockedAccount">
+      <skipped message="SkipException: account is disabled" />
+    </testcase>
+    <testcase classname="com.example.AuthTest" name="testExhaustedRetry">
+      <skipped message="TestNG retry handoff" />
+    </testcase>
+    <testcase classname="com.example.AuthTest" name="testExhaustedRetry">
+      <skipped message="retry limit reached" />
+    </testcase>
+  </testsuite>
+</testsuites>

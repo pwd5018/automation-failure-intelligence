@@ -167,6 +167,7 @@ function makeLogical(records: RawRecord[], isRetry: boolean, skippedPolicyValue:
   const final = attempts[attempts.length - 1];
   if (final.rawStatus === "SKIPPED" && skippedPolicyValue === "EXCLUDE_FROM_LOGICAL_TOTALS") return undefined;
   const recovered = isRetry && final.rawStatus === "PASSED";
+  const finalStatus = isRetry && final.rawStatus === "SKIPPED" ? "failed" : final.status;
   return {
     id: `test_${crypto.createHash("sha1").update(records.map(record => record.id).join("|")).digest("hex").slice(0, 12)}`,
     identity: records[0].identity,
@@ -175,8 +176,8 @@ function makeLogical(records: RawRecord[], isRetry: boolean, skippedPolicyValue:
     className: records[0].className,
     parameters: records[0].parameters,
     attempts,
-    finalStatus: final.status,
-    retryCount: isRetry ? 1 : 0,
+    finalStatus,
+    retryCount: isRetry ? records.length - 1 : 0,
     flaky: recovered,
     recoveredAfterRetry: recovered
   };
@@ -215,7 +216,7 @@ function reportMetadataOf(root: any): ReportMetadata {
   };
 }
 
-type AdapterId = "junit-generic" | "pytest" | "maven-surefire" | "nunit" | "xunit" | "jest" | "playwright" | "cypress";
+type AdapterId = "junit-generic" | "testng" | "pytest" | "maven-surefire" | "nunit" | "xunit" | "jest" | "playwright" | "cypress";
 const explicitFrameworkPropertyNames = new Set(["framework", "framework.name", "test.framework", "reporter", "generator", "producer"]);
 
 function adapterFor(reportMetadata: ReportMetadata): { id: AdapterId; warning?: string } {
@@ -223,6 +224,7 @@ function adapterFor(reportMetadata: ReportMetadata): { id: AdapterId; warning?: 
   if (!explicit) return { id: "junit-generic" };
   const value = explicit.toLowerCase();
   const known: Array<[string, AdapterId]> = [
+    ["testng", "testng"],
     ["surefire", "maven-surefire"],
     ["pytest", "pytest"],
     ["nunit", "nunit"],
@@ -243,6 +245,9 @@ function parseJUnit(xml: string, metadata: Record<string, any>): TestRun {
   const parsed = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: "@_", textNodeName: "#text", isArray: (_name, jpath) => String(jpath).endsWith("testcase") }).parse(xml);
   const root = parsed.testsuites || parsed.testsuite || {};
   const suites = parsed.testsuites?.testsuite ? asArray(parsed.testsuites.testsuite) : parsed.testsuite ? [parsed.testsuite] : [];
+  const reportMetadata = reportMetadataOf(root);
+  const adapter = metadata.sourceType === "testng-junit" ? { id: "testng" as AdapterId } : adapterFor(reportMetadata);
+  const isTestNg = adapter.id === "testng";
   const rawRecords: RawRecord[] = [];
   let order = 0;
   const visitSuite = (suite: any, parentPath: string[] = []): void => {
@@ -252,21 +257,29 @@ function parseJUnit(xml: string, metadata: Record<string, any>): TestRun {
     const rawName = text(test["@_name"] || "Unnamed test");
     const testName = rawName;
     const className = text(test["@_classname"] || suite["@_classname"] || "");
-    const parameters = text(test["@_parameters"] || test["@_param"] || test["@_parameterId"] || test["@_dataProviderRowId"] || test["@_invocationId"] || test["@_browser"] || test["@_device"] || test["@_region"] || test["@_datasetId"] || "");
+    const parameters = text(test["@_parameters"] || test["@_param"] || test["@_parameterId"] || test["@_dataProvider"] || test["@_dataProviderRowId"] || test["@_invocationId"] || test["@_browser"] || test["@_device"] || test["@_region"] || test["@_datasetId"] || "");
     const failure = failureOf(test);
-    rawRecords.push({ id: `raw_${++order}`, order, suite: suitePath.join(" / "), className, testName, identity: [suitePath.join(" / "), className, testName, parameters].map(normalize).join("|"), parameters: parameters || undefined, rawStatus: statusOf(test), message: failure?.message, stackTrace: failure?.stack, duration: text(test["@_time"]) || undefined, timestamp: new Date().toISOString() });
+    const identity = isTestNg
+      ? `${normalize(className)}#${normalize(testName)}${parameters ? `#${normalize(parameters)}` : ""}`
+      : [suitePath.join(" / "), className, testName, parameters].map(normalize).join("|");
+    rawRecords.push({ id: `raw_${++order}`, order, suite: suitePath.join(" / "), className, testName, identity, parameters: parameters || undefined, rawStatus: statusOf(test), message: failure?.message, stackTrace: failure?.stack, duration: text(test["@_time"]) || undefined, timestamp: new Date().toISOString() });
     }
     for (const child of asArray(suite?.testsuite)) visitSuite(child, suitePath);
   };
   for (const suite of suites) visitSuite(suite);
-  const reportMetadata = reportMetadataOf(root);
-  const adapter = adapterFor(reportMetadata);
-
   const logicalTests: LogicalTest[] = [];
   const warnings: string[] = [];
   if (adapter.warning) warnings.push(adapter.warning);
-  for (const current of rawRecords) {
-    const logical = makeLogical([current], false, "COUNT_AS_SKIPPED");
+  const logicalRecords = isTestNg
+    ? [...rawRecords.reduce((groups, record) => {
+      const group = groups.get(record.identity) || [];
+      group.push(record);
+      groups.set(record.identity, group);
+      return groups;
+    }, new Map<string, RawRecord[]>()).values()]
+    : rawRecords.map(record => [record]);
+  for (const records of logicalRecords) {
+    const logical = makeLogical(records, isTestNg && records.length > 1, "COUNT_AS_SKIPPED");
     if (logical) logicalTests.push(logical);
   }
   const summary = summarize(logicalTests, rawRecords);
@@ -277,8 +290,10 @@ function parseJUnit(xml: string, metadata: Record<string, any>): TestRun {
     identities.add(record.identity);
     return false;
   });
-  if (hasRepeatedIdentity) warnings.push("Repeated test identities are shown as separate reported results; no retry inference is applied.");
-  const quality = evaluateReportQuality({ rawRecords, reportMetadata, summary });
+  if (hasRepeatedIdentity) warnings.push(isTestNg
+    ? "Repeated TestNG test identities were aggregated as ordered retry attempts; raw records remain available in the attempt history."
+    : "Repeated test identities are shown as separate reported results; no retry inference is applied.");
+  const quality = evaluateReportQuality({ rawRecords, reportMetadata, summary, retryAggregationApplied: isTestNg });
   for (const issue of quality.issues) if (!warnings.includes(issue.message)) warnings.push(issue.message);
   const id = `run_${crypto.createHash("sha256").update(`${metadata.externalRunId || ""}|${xml}`).digest("hex").slice(0, 16)}`;
   const projectId = config.projectId;
@@ -387,8 +402,8 @@ app.get("/api/test-runs/:runId/results/:testId", async (req, res) => {
   const test = run.logicalTests.find(item => item.id === req.params.testId);
   return test ? res.json(publicResultDetail(run, test)) : res.status(404).json({ error: "Test result not found" });
 });
-app.post("/api/test-runs/preview", upload.single("file"), (req, res) => { if (!req.file) return res.status(400).json({ error: "Attach a JUnit XML file using the 'file' field." }); try { res.json(preview(parseJUnit(req.file.buffer.toString("utf8"), req.body))); } catch (error) { res.status(400).json({ error: error instanceof Error ? error.message : "Invalid JUnit XML" }); } });
-app.post("/api/test-runs", upload.single("file"), async (req, res) => { if (!req.file) return res.status(400).json({ error: "Attach a JUnit XML file using the 'file' field." }); try { const run = parseJUnit(req.file.buffer.toString("utf8"), { ...req.body, sourceType: "manual-upload", sourceName: req.file.originalname }); if (run.quality.status === "QUARANTINED") return res.status(422).json({ error: "Report was quarantined and was not ingested.", quality: run.quality, preview: preview(run) }); const stored = await ingest(run); res.status(201).json({ run: publicRun(stored), preview: preview(stored) }); } catch (error) { res.status(400).json({ error: error instanceof Error ? error.message : "Invalid JUnit XML" }); } });
+app.post("/api/test-runs/preview", upload.single("file"), (req, res) => { if (!req.file) return res.status(400).json({ error: "Attach a JUnit XML file using the 'file' field." }); try { const sourceType = req.body.sourceType === "testng-junit" ? "testng-junit" : "manual-upload"; res.json(preview(parseJUnit(req.file.buffer.toString("utf8"), { ...req.body, sourceType, sourceName: req.file.originalname }))); } catch (error) { res.status(400).json({ error: error instanceof Error ? error.message : "Invalid JUnit XML" }); } });
+app.post("/api/test-runs", upload.single("file"), async (req, res) => { if (!req.file) return res.status(400).json({ error: "Attach a JUnit XML file using the 'file' field." }); try { const sourceType = req.body.sourceType === "testng-junit" ? "testng-junit" : "manual-upload"; const run = parseJUnit(req.file.buffer.toString("utf8"), { ...req.body, sourceType, sourceName: req.file.originalname }); if (run.quality.status === "QUARANTINED") return res.status(422).json({ error: "Report was quarantined and was not ingested.", quality: run.quality, preview: preview(run) }); const stored = await ingest(run); res.status(201).json({ run: publicRun(stored), preview: preview(stored) }); } catch (error) { res.status(400).json({ error: error instanceof Error ? error.message : "Invalid JUnit XML" }); } });
 app.get("/api/failure-groups", async (req, res) => {
   await refreshPersistentState();
   const runId = text(req.query.runId).trim();
@@ -462,7 +477,7 @@ app.post("/api/demo/seed", async (req, res) => {
   const body = req.body || {};
   await clearDemoData();
   const reports = [
-    { id: "demo-testng-basic", build: "demo-testng-basic", xml: `<?xml version="1.0" encoding="UTF-8"?><testsuites name="TestNG JUnit demo" tests="3" failures="1" skipped="1"><testsuite name="com.example.LoginTest" tests="3" failures="1" skipped="1"><testcase classname="com.example.LoginTest" name="validLogin" time="0.021"/><testcase classname="com.example.LoginTest" name="invalidPassword" time="0.014"><failure message="expected login rejection">java.lang.AssertionError: expected login rejection</failure></testcase><testcase classname="com.example.LoginTest" name="lockedAccount" time="0.000"><skipped/></testcase></testsuite></testsuites>` }
+    { id: "demo-testng-basic", build: "demo-testng-basic", xml: `<?xml version="1.0" encoding="UTF-8"?><testsuites framework="testng" name="TestNG JUnit demo" tests="5" failures="2" skipped="1"><testsuite name="com.example.LoginTest"><testcase classname="com.example.LoginTest" name="validLogin" time="0.021"/><testcase classname="com.example.LoginTest" name="invalidPassword" time="0.014"><failure message="expected login rejection">java.lang.AssertionError: expected login rejection</failure></testcase><testcase classname="com.example.LoginTest" name="lockedAccount" time="0.000"><skipped message="disabled account fixture"/></testcase><testcase classname="com.example.LoginTest" name="retrySkipThenPass" time="0.010"><skipped message="TestNG retry handoff"/></testcase><testcase classname="com.example.LoginTest" name="retrySkipThenPass" time="0.018"/><testcase classname="com.example.LoginTest" name="retrySkipExhausted" time="0.010"><skipped message="TestNG retry handoff"/></testcase><testcase classname="com.example.LoginTest" name="retrySkipExhausted" time="0.012"><skipped message="retry limit reached"/></testcase></testsuite></testsuites>` }
   ];
   const ingested = [];
   for (const report of reports) ingested.push(await ingest(parseJUnit(report.xml, { projectId: body.projectId || "default", build: report.build, environment: "demo", externalRunId: report.id, sourceType: "demo", sourceName: report.id })));

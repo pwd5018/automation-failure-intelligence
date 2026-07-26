@@ -26,6 +26,7 @@ type QualityMetadata = {
 
 type QualitySummary = {
   rawTestcaseRecords: number;
+  logicalTests: number;
   failed: number;
   errors: number;
   skipped: number;
@@ -42,6 +43,7 @@ export function evaluateReportQuality(input: {
   rawRecords: QualityRecord[];
   reportMetadata: QualityMetadata;
   summary: QualitySummary;
+  retryAggregationApplied?: boolean;
 }): ReportQuality {
   const issues: ReportQualityIssue[] = [];
 
@@ -72,12 +74,14 @@ export function evaluateReportQuality(input: {
     issues.push({
       code: "REPEATED_TEST_IDENTITY",
       severity: "WARNING",
-      message: "Repeated test identities are preserved as separate reported results; no retry inference is applied."
+      message: input.retryAggregationApplied
+        ? "Repeated TestNG test identities were aggregated as ordered retry attempts; raw records remain available in the attempt history."
+        : "Repeated test identities are preserved as separate reported results; no retry inference is applied."
     });
   }
 
   const declared = [
-    ["tests", input.summary.rawTestcaseRecords],
+    ["tests", input.summary.logicalTests],
     ["failures", input.summary.failed],
     ["errors", input.summary.errors],
     ["skipped", input.summary.skipped]

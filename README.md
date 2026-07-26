@@ -15,22 +15,22 @@ For the contribution and deployment workflow, see [docs/GITHUB_WORKFLOW.md](docs
 
 ## Current behavior
 
-The current model is intentionally simple and truthful. The active ingestion path is TestNG-produced JUnit XML; it uses the generic JUnit parser and does not infer TestNG retries or framework-specific behavior:
+The current model is intentionally simple and truthful. The active ingestion path is TestNG-produced JUnit XML. Explicit TestNG input aggregates retry records while preserving every raw attempt:
 
-- Every raw testcase is one logical result by default.
+- The dashboard total counts logical tests, not rerun records.
 - `PASSED` counts as passed.
 - `FAILED` and `ERROR` count as failed.
 - `FAILED` and `ERROR` are exposed as separate summary counts.
-- `SKIPPED` counts as skipped.
-- No retry or flaky interpretation is inferred from status sequences.
-- The current demo uses unique test names and does not simulate parameterized tests.
+- A single `SKIPPED` is a true skip; repeated TestNG `SKIPPED` records are retry attempts.
+- A retry sequence ending in `PASSED` is flaky and passed; a sequence ending in `FAILED`, `ERROR`, or exhausted `SKIPPED` is not flaky and is failed/error.
+- Retry count is the number of additional attempts beyond the first logical test record.
 - Failure groups appear in a selected run only when at least two failed/error tests share a signature.
 
 ## Dashboard demos
 
-The dashboard loads one small stable TestNG-style JUnit demo run with a passed testcase, a failed testcase, and a skipped testcase. The `Load demo runs` button replaces older demo runs before loading this pack. Demo data is separate from the TestNG JUnit ingestion path.
+The dashboard loads one stable TestNG-style JUnit demo run with true skips, a recovered retry, and an exhausted retry. The `Load demo runs` button replaces older demo runs before loading this pack. Demo data is separate from the TestNG JUnit ingestion path.
 
-The test suite includes malformed, parameterized, nested, empty, large-report, and explicit framework-adapter fixtures. The dashboard reports source statuses directly and does not infer retries from status sequences.
+The test suite includes malformed, parameterized, nested, empty, large-report, TestNG true-skip, and TestNG retry-skip fixtures. The dashboard reports source statuses directly and exposes retry attempts under one logical result.
 
 ## Persistence
 

@@ -133,7 +133,7 @@ function hydrateRunFromNormalizedRows(runRow: any, resultRows: any[]): any {
     processingStatus: runRow.processing_status ?? payload.processingStatus,
     provenance: runRow.provenance ?? payload.provenance,
     rawRecords,
-    logicalTests
+    logicalTests: payload.logicalTests || logicalTests
   };
 }
 
