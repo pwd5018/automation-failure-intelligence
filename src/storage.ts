@@ -4,6 +4,7 @@ import crypto from "node:crypto";
 type StoredState = {
   runs: any[];
   groups: any[];
+  dispositions: any[];
 };
 
 export type Storage = {
@@ -13,12 +14,13 @@ export type Storage = {
   load: () => Promise<StoredState>;
   saveRun: (run: any) => Promise<void>;
   saveGroup: (group: any) => Promise<void>;
+  saveDisposition: (disposition: any) => Promise<void>;
   deleteRun: (id: string) => Promise<void>;
   deleteGroup: (id: string) => Promise<void>;
 };
 
 function memoryStorage(variable?: string, error?: string): Storage {
-  return { persistent: false, variable, error, load: async () => ({ runs: [], groups: [] }), saveRun: async () => undefined, saveGroup: async () => undefined, deleteRun: async () => undefined, deleteGroup: async () => undefined };
+  return { persistent: false, variable, error, load: async () => ({ runs: [], groups: [], dispositions: [] }), saveRun: async () => undefined, saveGroup: async () => undefined, saveDisposition: async () => undefined, deleteRun: async () => undefined, deleteGroup: async () => undefined };
 }
 
 function connectionStringForNode(value: string): string {
@@ -85,6 +87,20 @@ const normalizedSchemaSql = `
     ON afi_test_results (run_id, identity);
   CREATE INDEX IF NOT EXISTS afi_test_results_run_status_idx
     ON afi_test_results (run_id, raw_status);
+
+  CREATE TABLE IF NOT EXISTS afi_result_dispositions (
+    id TEXT PRIMARY KEY,
+    run_id TEXT NOT NULL REFERENCES afi_runs(id) ON DELETE CASCADE,
+    test_id TEXT NOT NULL,
+    test_identity TEXT NOT NULL,
+    failure_signature TEXT,
+    payload JSONB NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (run_id, test_id)
+  );
+
+  CREATE INDEX IF NOT EXISTS afi_result_dispositions_identity_idx
+    ON afi_result_dispositions (test_identity, failure_signature);
 `;
 
 function hydrateRunFromNormalizedRows(runRow: any, resultRows: any[]): any {
@@ -172,7 +188,7 @@ export async function createStorage(): Promise<Storage> {
     persistent: true,
     variable,
     load: async () => {
-      const [runRows, resultRows, groupRows] = await Promise.all([
+      const [runRows, resultRows, groupRows, dispositionRows] = await Promise.all([
         pool.query(`SELECT id, payload, project_id, build, environment, adapter, adapter_version,
                            result_status, processing_status, ingested_at, raw_report,
                            report_metadata, warnings, summary,
@@ -182,7 +198,8 @@ export async function createStorage(): Promise<Storage> {
                            test_name, parameters, raw_status, message, stack_trace,
                            duration, reported_timestamp
                     FROM afi_test_results ORDER BY run_id, source_order`),
-        pool.query("SELECT payload FROM afi_failure_groups ORDER BY updated_at DESC")
+        pool.query("SELECT payload FROM afi_failure_groups ORDER BY updated_at DESC"),
+        pool.query("SELECT payload FROM afi_result_dispositions ORDER BY updated_at DESC")
       ]);
       const resultsByRun = new Map<string, any[]>();
       for (const row of resultRows.rows) {
@@ -195,7 +212,8 @@ export async function createStorage(): Promise<Storage> {
           const normalizedRows = resultsByRun.get(row.id) || [];
           return normalizedRows.length ? hydrateRunFromNormalizedRows(row, normalizedRows) : row.payload;
         }),
-        groups: groupRows.rows.map(row => row.payload)
+        groups: groupRows.rows.map(row => row.payload),
+        dispositions: dispositionRows.rows.map(row => row.payload)
       };
     },
     saveRun: async run => {
@@ -249,7 +267,9 @@ export async function createStorage(): Promise<Storage> {
       } finally {
         client.release();
       }
-    },    saveGroup: async group => { try { await pool.query("INSERT INTO afi_failure_groups (id, payload, updated_at) VALUES ($1, $2, NOW()) ON CONFLICT (id) DO UPDATE SET payload = EXCLUDED.payload, updated_at = NOW()", [group.id, jsonValue(group)]); } catch (error) { console.error("Could not persist failure group:", error); } },
+    },
+    saveGroup: async group => { try { await pool.query("INSERT INTO afi_failure_groups (id, payload, updated_at) VALUES ($1, $2, NOW()) ON CONFLICT (id) DO UPDATE SET payload = EXCLUDED.payload, updated_at = NOW()", [group.id, jsonValue(group)]); } catch (error) { console.error("Could not persist failure group:", error); } },
+    saveDisposition: async disposition => { try { await pool.query("INSERT INTO afi_result_dispositions (id, run_id, test_id, test_identity, failure_signature, payload, updated_at) VALUES ($1, $2, $3, $4, $5, $6, NOW()) ON CONFLICT (run_id, test_id) DO UPDATE SET test_identity = EXCLUDED.test_identity, failure_signature = EXCLUDED.failure_signature, payload = EXCLUDED.payload, updated_at = NOW()", [disposition.id, disposition.runId, disposition.testId, disposition.testIdentity, disposition.failureSignature || null, jsonValue(disposition)]); } catch (error) { console.error("Could not persist result disposition:", error); } },
     deleteRun: async id => { try { await pool.query("DELETE FROM afi_runs WHERE id = $1", [id]); } catch (error) { console.error("Could not delete demo run:", error); } },
     deleteGroup: async id => { try { await pool.query("DELETE FROM afi_failure_groups WHERE id = $1", [id]); } catch (error) { console.error("Could not delete demo failure group:", error); } }
   };

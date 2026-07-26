@@ -209,6 +209,8 @@ test("Phase 4 storage schema preserves normalized source-record seams", async ()
   assert.match(storageSource, /ROLLBACK/);
   assert.match(storageSource, /\$\{run\.id\}:\$\{record\.id\}/);
   assert.match(storageSource, /hydrateRunFromNormalizedRows/);
+  assert.match(storageSource, /afi_result_dispositions/);
+  assert.match(storageSource, /saveDisposition/);
   assert.match(storageSource, /SELECT id, run_id, source_order/);
   assert.match(storageSource, /jsonValue\(run\)/);
   assert.match(storageSource, /jsonValue\(record\)/);
@@ -335,6 +337,9 @@ test("dashboard source renders adapter and report metadata fields", async () => 
   assert.match(dashboard, /NEEDS REVIEW/);
   assert.match(dashboard, /openTestDetail/);
   assert.match(dashboard, /detailGroupKey/);
+  assert.match(dashboard, /Failure disposition/);
+  assert.match(dashboard, /Previous matching dispositions/);
+  assert.match(dashboard, /saveResultDisposition/);
   assert.match(dashboard, /Iterations and attempts/);
   assert.match(dashboard, /Back to results/);
   assert.match(dashboard, /retry attempts are retained inside the result history/);
@@ -446,6 +451,25 @@ test("result detail exposes data-provider iteration and review evidence", async 
   assert.equal(reviewDetail.result.observed.passed, 1);
   assert.equal(reviewDetail.result.observed.skipped, 1);
   assert.equal(reviewDetail.result.attempts.length, 2);
+});
+
+test("result dispositions provide matching prior suggestions", async () => {
+  const xml = "<?xml version=\"1.0\"?><testsuites><testsuite name=\"Disposition\"><testcase classname=\"CheckoutTest\" name=\"submitOrder\"><failure message=\"known checkout defect\">java.lang.AssertionError: known checkout defect</failure></testcase></testsuite></testsuites>";
+  const first = await (await uploadXml(xml, { externalRunId: "disposition-first", build: "build-1" })).json() as any;
+  const firstTest = first.run.logicalTests[0];
+  const saved = await fetch(`${baseUrl}/api/test-runs/${first.run.id}/results/${firstTest.id}/disposition`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ classification: "known-failure", notes: "Tracked defect", jiraIssue: { key: "QA-321" } }) });
+  assert.equal(saved.status, 200);
+  const second = await (await uploadXml(xml, { externalRunId: "disposition-second", build: "build-2" })).json() as any;
+  const secondTest = second.run.logicalTests[0];
+  const detail = await (await fetch(`${baseUrl}/api/test-runs/${second.run.id}/results/${secondTest.id}`)).json() as any;
+  assert.equal(detail.disposition, undefined);
+  assert.equal(detail.suggestions.length, 1);
+  assert.equal(detail.suggestions[0].classification, "known-failure");
+  assert.equal(detail.suggestions[0].jiraIssue.key, "QA-321");
+  const applied = await fetch(`${baseUrl}/api/test-runs/${second.run.id}/results/${secondTest.id}/disposition`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ classification: "known-failure", notes: "Confirmed still tracked", jiraIssue: { key: "QA-321" } }) });
+  const appliedDetail = await applied.json() as any;
+  assert.equal(appliedDetail.disposition.classification, "known-failure");
+  assert.equal(appliedDetail.disposition.notes, "Confirmed still tracked");
 });
 
 test("normalized storage schema includes provenance columns", async () => {
