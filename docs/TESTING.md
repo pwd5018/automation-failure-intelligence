@@ -10,16 +10,16 @@ Use [GITHUB_WORKFLOW.md](GITHUB_WORKFLOW.md) to publish completed changes throug
 
 ## Required coverage
 
-- Passed, failed, error, and skipped records.
+- Passed, failed, error, true skipped, logical total, flaky, and retry counts.
 - Parameterized rows retain their parameters as part of result identity.
 - Nested suites retain their suite path.
 - Report attributes and properties are exposed as metadata.
 - Valid empty reports return an explicit warning and an `UNKNOWN` result status.
 - Explicit pytest and Maven Surefire metadata select adapter labels; unknown declarations remain generic with a warning.
-- Larger reports retain complete record count and source order without retry inference.
+- Larger reports retain complete raw record count and source order; explicit TestNG retry sequences collapse into logical results without losing attempts.
 - The dashboard displays adapter identity, report metadata, properties, and parser warnings.
 - All registered adapters have explicit-metadata fixtures; root metadata precedence and unknown fallback are covered.
-- The current demo uses unique test names and does not simulate parameterized rows.
+- TestNG true skips, retry skips, recovered retries, exhausted retries, and parameterized retry identities.
 - Run search and status filters.
 - Storage health reporting.
 - Duplicate ingestion behavior.

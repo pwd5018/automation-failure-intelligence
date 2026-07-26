@@ -45,20 +45,70 @@ test("demo pack provides one simple TestNG JUnit run", async () => {
   assert.equal(response.status, 200);
   assert.equal(result.scenario, "demo-pack");
   assert.equal(result.runs.length, 1);
-  assert.equal(result.preview.summary.logicalTests, 3);
-  assert.equal(result.preview.summary.passed, 1);
-  assert.equal(result.preview.summary.failed, 1);
+  assert.equal(result.preview.summary.rawTestcaseRecords, 7);
+  assert.equal(result.preview.summary.logicalTests, 5);
+  assert.equal(result.preview.summary.passed, 2);
+  assert.equal(result.preview.summary.failed, 2);
   assert.equal(result.preview.summary.errors, 0);
   assert.equal(result.preview.summary.skipped, 1);
-  assert.equal(result.preview.summary.retryCount, 0);
+  assert.equal(result.preview.summary.flaky, 1);
+  assert.equal(result.preview.summary.retryCount, 2);
   assert.equal(result.run.provenance.sourceType, "demo");
   assert.equal(result.run.provenance.sourceName, "demo-testng-basic");
-  assert.equal(result.run.adapter, "junit-generic");
-  assert.equal(new Set(result.run.logicalTests.map((test: any) => test.name)).size, 3);
+  assert.equal(result.run.adapter, "testng");
+  assert.equal(new Set(result.run.logicalTests.map((test: any) => test.name)).size, 5);
+  const recovered = result.run.logicalTests.find((test: any) => test.name === "retrySkipThenPass");
+  assert.equal(recovered.attempts.length, 2);
+  assert.equal(recovered.attempts[0].rawStatus, "SKIPPED");
+  assert.equal(recovered.finalStatus, "passed");
+  assert.equal(recovered.flaky, true);
+  const exhausted = result.run.logicalTests.find((test: any) => test.name === "retrySkipExhausted");
+  assert.equal(exhausted.finalStatus, "failed");
+  assert.equal(exhausted.attempts[1].rawStatus, "SKIPPED");
   const groups = await (await fetch(`${baseUrl}/api/failure-groups?runId=${result.run.id}`)).json() as any[];
   assert.equal(groups.length, 0);
   const searchedGroups = await (await fetch(`${baseUrl}/api/failure-groups?runId=${result.run.id}&q=checkout`)).json() as any[];
   assert.equal(searchedGroups.length, 0);
+});
+
+test("TestNG distinguishes true skips from retry skips and counts logical tests", async () => {
+  const result = await (await uploadXml(await readFile(fixture("testng-retry-skips.xml"), "utf8"), { sourceType: "testng-junit" })).json() as any;
+  assert.equal(result.preview.provenance.sourceType, "testng-junit");
+  assert.equal(result.preview.adapter, "testng");
+  assert.equal(result.preview.summary.rawTestcaseRecords, 5);
+  assert.equal(result.preview.summary.physicalAttempts, 5);
+  assert.equal(result.preview.summary.logicalTests, 3);
+  assert.equal(result.preview.summary.passed, 1);
+  assert.equal(result.preview.summary.failed, 1);
+  assert.equal(result.preview.summary.skipped, 1);
+  assert.equal(result.preview.summary.retryCount, 2);
+  assert.equal(result.preview.summary.flaky, 1);
+  const recovered = result.run.logicalTests.find((test: any) => test.name === "testUserLogin");
+  assert.equal(recovered.attempts.length, 2);
+  assert.equal(recovered.attempts[0].rawStatus, "SKIPPED");
+  assert.equal(recovered.finalStatus, "passed");
+  assert.equal(recovered.recoveredAfterRetry, true);
+  const trueSkip = result.run.logicalTests.find((test: any) => test.name === "testLockedAccount");
+  assert.equal(trueSkip.attempts.length, 1);
+  assert.equal(trueSkip.finalStatus, "skipped");
+  const exhausted = result.run.logicalTests.find((test: any) => test.name === "testExhaustedRetry");
+  assert.equal(exhausted.attempts.length, 2);
+  assert.equal(exhausted.finalStatus, "failed");
+  assert.equal(exhausted.flaky, false);
+});
+
+test("TestNG parameters keep retry groups separate", async () => {
+  const result = await (await uploadXml(await readFile(fixture("testng-parameter-retry.xml"), "utf8"), { sourceType: "testng-junit" })).json() as any;
+  assert.equal(result.preview.summary.logicalTests, 2);
+  assert.equal(result.preview.summary.passed, 1);
+  assert.equal(result.preview.summary.skipped, 1);
+  assert.equal(result.preview.summary.retryCount, 1);
+  const blue = result.run.logicalTests.find((test: any) => test.parameters === "blue");
+  const green = result.run.logicalTests.find((test: any) => test.parameters === "green");
+  assert.equal(blue.attempts.length, 2);
+  assert.equal(blue.finalStatus, "passed");
+  assert.equal(green.attempts.length, 1);
+  assert.equal(green.finalStatus, "skipped");
 });
 
 test("failure groups appear only for multiple matching failures in one run", async () => {
@@ -266,6 +316,9 @@ test("dashboard source renders adapter and report metadata fields", async () => 
   assert.match(dashboard, /Adapter/);
   assert.match(dashboard, /Properties/);
   assert.match(dashboard, /run\.warnings/);
+  assert.match(dashboard, /Result definitions/);
+  assert.match(dashboard, /retry attempts are retained inside the result history/);
+  assert.match(dashboard, /Attempt history/);
   assert.match(dashboard, /developer\.html/);
   assert.doesNotMatch(dashboard, /async function devAll\(\)/);
 });

@@ -11,9 +11,9 @@ This repository is a private QA-triage sandbox for JUnit test-run reporting.
 - `FAILED` is failed.
 - `ERROR` is error.
 - `SKIPPED` is skipped.
-- Repeated names are separate results.
+- Repeated names are separate results for generic JUnit. Explicit TestNG input groups matching `classname#name` identities, with parameters appended to the identity, into ordered logical attempts.
 - Parameters remain part of result identity.
-- Never infer retries or flaky behavior from status order.
+- Never infer retries or flaky behavior from status order for generic JUnit. Retry aggregation is allowed only for explicit TestNG input (`sourceType=testng-junit` or declared TestNG metadata).
 
 ## Architecture
 

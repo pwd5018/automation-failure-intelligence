@@ -157,7 +157,7 @@
 
         .summary-metrics {
             display: grid;
-            grid-template-columns:repeat(5, 1fr);
+            grid-template-columns:repeat(7, 1fr);
             gap: 10px;
             margin-top: 20px
         }
@@ -178,6 +178,20 @@
             display: block;
             font-size: 22px;
             margin-top: 4px
+        }
+
+        .summary-definitions {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 8px 14px;
+            margin-top: 14px;
+            color: #67738a;
+            font-size: 12px;
+            line-height: 1.4
+        }
+
+        .summary-definitions b {
+            color: #38445d
         }
 
         .run-grid {
@@ -359,6 +373,38 @@
             color: #91620a
         }
 
+        .attempt-history {
+            display: flex;
+            gap: 5px;
+            align-items: center;
+            justify-content: flex-end;
+            flex-wrap: wrap;
+            margin-top: 6px;
+            color: #657087;
+            font-size: 11px
+        }
+
+        .attempt-history .attempt {
+            border: 1px solid #dfe4ef;
+            border-radius: 999px;
+            padding: 4px 7px;
+            background: #fff
+        }
+
+        .attempt-history .attempt.failed, .attempt-history .attempt.error {
+            border-color: #f2b8b5;
+            color: #b42318
+        }
+
+        .attempt-history .attempt.skipped {
+            border-color: #efd79c;
+            color: #91620a
+        }
+
+        .attempt-arrow {
+            color: #9aa4b5
+        }
+
         .detail {
             margin-top: 18px
         }
@@ -486,6 +532,10 @@
             .summary-title {
                 font-size: 24px
             }
+
+            .summary-definitions {
+                grid-template-columns: 1fr
+            }
         }
     </style>
 </head>
@@ -500,17 +550,17 @@
             <button id="demo">Load demo report</button>
             <a class="developer-link" href="/developer.html" target="_blank" rel="noopener">Developer checks</a></div>
     </section>
-    <section class="card controls"><h2 class="wide">Load a report</h2><input id="file" type="file" accept=".xml"><input
+    <section class="card controls"><h2 class="wide">Load a TestNG JUnit report</h2><input id="file" type="file" accept=".xml"><input
             id="build" placeholder="Build number"><input id="environment" placeholder="Environment">
         <button id="preview">Preview report</button>
-        <button id="upload">Ingest report</button>
+        <button id="upload">Ingest TestNG JUnit</button>
     </section>
     <section class="card summary">
         <div class="summary-top">
             <div>
                 <div class="muted">Latest report</div>
                 <div id="summaryTitle" class="summary-title">No report loaded</div>
-                <p id="summaryCopy" class="summary-copy">Load the demo report or choose a JUnit XML file.</p></div>
+                <p id="summaryCopy" class="summary-copy">Load the demo report or choose a TestNG JUnit XML file.</p></div>
             <div id="summaryBadges"></div>
         </div>
         <div class="summary-metrics">
@@ -519,6 +569,16 @@
             <div class="metric"><span>Failed</span><b id="failedCount">0</b></div>
             <div class="metric"><span>Errors</span><b id="errorCount">0</b></div>
             <div class="metric"><span>Skipped</span><b id="skippedCount">0</b></div>
+            <div class="metric"><span>Retries</span><b id="retryCount">0</b></div>
+            <div class="metric"><span>Flaky</span><b id="flakyCount">0</b></div>
+        </div>
+        <div class="summary-definitions" aria-label="Result definitions">
+            <span><b>Total</b> logical tests; reruns are excluded.</span>
+            <span><b>Skipped</b> tests with one true skip record.</span>
+            <span><b>Retries</b> additional attempts after the first.</span>
+            <span><b>Flaky</b> tests that passed after a retry.</span>
+            <span><b>Failed</b> tests whose final attempt failed.</span>
+            <span><b>Errors</b> tests whose final attempt errored.</span>
         </div>
         <div id="summaryNote"></div>
     </section>
@@ -537,7 +597,7 @@
             </select><input id="runSearch" placeholder="Search stored runs" aria-label="Search stored runs"></div>
             <div id="runInfo"><p>Report metadata and test results will appear here.</p></div>
             <h3>Test results</h3>
-            <p class="muted">Each row is one testcase record from the XML report. Repeated names remain separate.</p>
+            <p class="muted">Each row is one logical test. TestNG retry attempts are retained inside the result history.</p>
             <div class="filters"><select id="testStatus" aria-label="Filter test results">
                 <option value="">All test results</option>
                 <option value="passed">Passed</option>
@@ -592,13 +652,15 @@
         const properties = Object.entries(metadata.properties || {}).map(([key, value]) => '<div class="metadata-row"><span class="metadata-label">' + esc(key) + '</span><span>' + esc(value) + '</span></div>').join('');
         const reportDetails = [metadata.name && '<div class="metadata-row"><span class="metadata-label">Report</span><span>' + esc(metadata.name) + '</span></div>', metadata.tests && '<div class="metadata-row"><span class="metadata-label">Declared tests</span><span>' + esc(metadata.tests) + '</span></div>', metadata.failures && '<div class="metadata-row"><span class="metadata-label">Declared failures</span><span>' + esc(metadata.failures) + '</span></div>', metadata.errors && '<div class="metadata-row"><span class="metadata-label">Declared errors</span><span>' + esc(metadata.errors) + '</span></div>', metadata.skipped && '<div class="metadata-row"><span class="metadata-label">Declared skipped</span><span>' + esc(metadata.skipped) + '</span></div>', metadata.time && '<div class="metadata-row"><span class="metadata-label">Declared time</span><span>' + esc(metadata.time) + '</span></div>'].filter(Boolean).join('');
         $('summaryTitle').textContent = run.resultStatus === 'FAILED' ? 'Run has failures' : run.resultStatus === 'PASSED' ? 'Run passed' : 'No results';
-        $('summaryCopy').textContent = (s.logicalTests || 0) + ' test results reported: ' + passed + ' passed, ' + failed + ' failed, ' + errors + ' errors, ' + skipped + ' skipped.';
+        $('summaryCopy').textContent = (s.logicalTests || 0) + ' tests reported: ' + passed + ' passed, ' + failed + ' failed, ' + errors + ' errors, ' + skipped + ' true skipped, ' + (s.retryCount || 0) + ' retries.';
         $('summaryBadges').innerHTML = '<span class="status ' + String(run.resultStatus || '').toLowerCase() + '">' + esc(run.resultStatus) + '</span> <span class="status ' + (run.processingStatus === 'WARNING' ? 'warning' : '') + '">' + esc(run.processingStatus) + '</span>';
         $('logicalCount').textContent = s.logicalTests || 0;
         $('passedCount').textContent = passed;
         $('failedCount').textContent = failed;
         $('errorCount').textContent = errors;
         $('skippedCount').textContent = skipped;
+        $('retryCount').textContent = s.retryCount || 0;
+        $('flakyCount').textContent = s.flaky || 0;
         $('summaryNote').innerHTML = run.warnings?.length ? '<div class="notice"><b>Reporting note</b><ul>' + run.warnings.map(w => '<li>' + esc(w) + '</li>').join('') + '</ul></div>' : '';
         $('runInfo').innerHTML = '<div class="muted">' + esc(run.projectId) + ' - ' + esc(run.build || 'local') + ' - ' + esc(run.environment || 'default') + '</div><div class="metadata"><div class="metadata-row"><span class="metadata-label">Adapter</span><span>' + esc(run.adapter || 'junit-generic') + ' ' + esc(run.adapterVersion || '') + '</span></div>' + reportDetails + (properties ? '<div class="metadata-row"><span class="metadata-label">Properties</span><span>' + properties + '</span></div>' : '') + '</div><p>Source: <b>JUnit XML</b> - Each testcase is shown exactly as reported.</p><div class="muted">Ingested ' + esc(run.ingestedAt || '') + '</div>';
         renderTests();
@@ -610,10 +672,12 @@
         const query = normalize($('testSearch').value);
         const filtered = tests.filter(test => (!status || test.finalStatus === status) && (!query || normalize([test.name, test.className, test.suite].join(' ')).includes(query)));
         $('testResults').innerHTML = filtered.length ? filtered.map(test => {
-            const attempt = Array.isArray(test.attempts) ? test.attempts[0] : null;
-            const value = String(test.finalStatus || attempt?.status || 'unknown').toLowerCase();
-            const evidence = attempt?.message ? '<div class="test-meta">' + esc(attempt.message) + '</div>' : '';
-            return '<div id="test-' + esc(test.id) + '" class="test-row"><div><div class="test-name">' + esc(test.name) + '</div><div class="test-meta">' + esc(test.className || test.suite || '') + ' - Reported directly by the source XML</div>' + evidence + '</div><div class="test-history"><span class="' + esc(value) + '">' + esc(value.toUpperCase()) + '</span></div></div>'
+            const attempts = Array.isArray(test.attempts) && test.attempts.length ? test.attempts : [];
+            const finalAttempt = attempts[attempts.length - 1];
+            const value = String(test.finalStatus || finalAttempt?.status || 'unknown').toLowerCase();
+            const evidence = finalAttempt?.message ? '<div class="test-meta">' + esc(finalAttempt.message) + '</div>' : '';
+            const history = attempts.length > 1 ? '<div class="attempt-history" aria-label="Attempt history">' + attempts.map((attempt, index) => '<span class="attempt ' + esc(String(attempt.rawStatus || attempt.status || '').toLowerCase()) + '" title="' + esc(attempt.message || '') + '">Attempt ' + (index + 1) + ': ' + esc(String(attempt.rawStatus || attempt.status || 'UNKNOWN').toUpperCase()) + '</span>').join('<span class="attempt-arrow" aria-hidden="true">→</span>') + '</div>' : '';
+            return '<div id="test-' + esc(test.id) + '" class="test-row"><div><div class="test-name">' + esc(test.name) + '</div><div class="test-meta">' + esc(test.className || test.suite || '') + ' - Reported directly by the source XML</div>' + evidence + '</div><div class="test-history"><span class="' + esc(value) + '">' + esc(value.toUpperCase()) + '</span>' + history + '</div></div>'
         }).join('') : '<p class="muted">No matching test results.</p>';
     }
 
@@ -692,12 +756,13 @@
     async function getForm() {
         const file = $('file').files[0];
         if (!file) {
-            alert('Choose a JUnit XML file first.');
+            alert('Choose a TestNG JUnit XML file first.');
             return null;
         }
         const form = new FormData();
         form.append('file', file);
         form.append('projectId', 'default');
+        form.append('sourceType', 'testng-junit');
         form.append('build', $('build').value);
         form.append('environment', $('environment').value);
         return form;

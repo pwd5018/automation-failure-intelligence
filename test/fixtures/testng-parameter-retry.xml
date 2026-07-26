@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites framework="testng">
+  <testsuite name="com.example.SearchTest">
+    <testcase classname="com.example.SearchTest" name="search" dataProvider="blue" time="0.10">
+      <skipped message="TestNG retry handoff" />
+    </testcase>
+    <testcase classname="com.example.SearchTest" name="search" dataProvider="blue" time="0.12" />
+    <testcase classname="com.example.SearchTest" name="search" dataProvider="green" time="0.11">
+      <skipped message="true data-provider skip" />
+    </testcase>
+  </testsuite>
+</testsuites>

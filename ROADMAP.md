@@ -19,6 +19,7 @@ Automation Failure Intelligence is a private QA-triage workspace for understandi
 - Phase 5 Slice 1 is implemented on the report-quality branch: shared quality classification, declared-count warnings, repeated-identity warnings, and pre-ingestion quarantine for missing testcase names.
 - Phase 5 Slice 2 adds explicit source provenance to run responses and normalized Postgres metadata: source type/name, external run ID, project/build/environment, ingestion timestamp, and content hash.
 - Phase 6 Slice 1 adds a focused read-only testcase-detail endpoint that returns one source result with run provenance while excluding the raw XML payload.
+- TestNG retry/skip slice adds explicit TestNG identity aggregation, true-skip classification, ordered attempt history, logical totals, flaky recovery, and retry counts.
 
 ## Phases
 
