@@ -437,20 +437,20 @@ app.patch("/api/failure-groups/:id", async (req, res) => {
   await storage.saveGroup(group);
   res.json(group);
 });
-async function clearLegacyDemoData(): Promise<void> {
-  const legacyIds = [...runs.values()].filter(run => run.build === "demo-mixed-report").map(run => run.id);
-  if (!legacyIds.length) return;
-  for (const id of legacyIds) { runs.delete(id); await storage.deleteRun(id); }
+async function clearDemoData(): Promise<void> {
+  const demoIds = [...runs.values()].filter(run => run.provenance?.sourceType === "demo" || String(run.build || "").startsWith("demo-")).map(run => run.id);
+  if (!demoIds.length) return;
+  for (const id of demoIds) { runs.delete(id); await storage.deleteRun(id); }
   for (const [key, group] of groups.entries()) {
-    const remainingRuns = (group.runs || []).filter(runId => !legacyIds.includes(runId));
-    if (remainingRuns.length === 0 && (group.runs || []).some(runId => legacyIds.includes(runId))) {
+    const remainingRuns = (group.runs || []).filter(runId => !demoIds.includes(runId));
+    if (remainingRuns.length === 0 && (group.runs || []).some(runId => demoIds.includes(runId))) {
       groups.delete(key);
       await storage.deleteGroup(group.id);
       continue;
     }
     if (remainingRuns.length !== (group.runs || []).length) {
       group.runs = remainingRuns;
-      group.evidence = (group.evidence || []).filter(item => !legacyIds.includes(item.runId));
+      group.evidence = (group.evidence || []).filter(item => !demoIds.includes(item.runId));
       group.occurrences = group.evidence.length || remainingRuns.length;
       await storage.saveGroup(group);
     }
@@ -460,12 +460,9 @@ async function clearLegacyDemoData(): Promise<void> {
 app.post("/api/demo/seed", async (req, res) => {
   await refreshPersistentState();
   const body = req.body || {};
-  await clearLegacyDemoData();
+  await clearDemoData();
   const reports = [
-    { id: "demo-baseline", build: "demo-baseline", xml: `<?xml version="1.0"?><testsuites><testsuite name="Baseline checkout"><testcase classname="LoginTest" name="validLogin"/><testcase classname="CheckoutTest" name="submitOrder"><failure message="checkout failed">checkout failed at checkout.ts:1</failure></testcase><testcase classname="ProfileTest" name="loadProfile"><skipped/></testcase><testcase classname="SearchTest" name="searchProducts"/><testcase classname="CartTest" name="addItem"><error message="cart setup error">cart setup error at cart.ts:4</error></testcase><testcase classname="InventoryTest" name="checkStock"/></testsuite></testsuites>` },
-    { id: "demo-clean-pass", build: "demo-clean-pass", xml: `<?xml version="1.0"?><testsuites><testsuite name="Clean checkout"><testcase classname="LoginTest" name="validLogin"/><testcase classname="CheckoutTest" name="submitOrder"/><testcase classname="ProfileTest" name="loadProfile"/><testcase classname="SearchTest" name="searchProducts"/><testcase classname="InventoryTest" name="checkStock"/></testsuite></testsuites>` },
-    { id: "demo-shared-failure", build: "demo-shared-failure", xml: `<?xml version="1.0"?><testsuites><testsuite name="Shared failure investigation"><testcase classname="CheckoutTest" name="submitOrder"><failure message="database unavailable">connection refused</failure></testcase><testcase classname="PaymentTest" name="chargeCard"><failure message="database unavailable">connection refused</failure></testcase><testcase classname="LoginTest" name="validLogin"/><testcase classname="ProfileTest" name="loadProfile"/><testcase classname="SearchTest" name="searchProducts"/></testsuite></testsuites>` },
-    { id: "demo-expanded", build: "demo-expanded", xml: `<?xml version="1.0"?><testsuites><testsuite name="Expanded checkout"><testcase classname="LoginTest" name="validLogin"/><testcase classname="CheckoutTest" name="submitOrder"><failure message="checkout failed">checkout failed at checkout.ts:1</failure></testcase><testcase classname="ProfileTest" name="loadProfile"><skipped/></testcase><testcase classname="SearchTest" name="searchProducts"/><testcase classname="CartTest" name="addItem"><error message="cart setup error">cart setup error at cart.ts:4</error></testcase><testcase classname="InventoryTest" name="checkStock"/><testcase classname="NotificationTest" name="sendReceipt"/><testcase classname="AuditTest" name="recordOrder"/></testsuite></testsuites>` }
+    { id: "demo-testng-basic", build: "demo-testng-basic", xml: `<?xml version="1.0" encoding="UTF-8"?><testsuites name="TestNG JUnit demo" tests="3" failures="1" skipped="1"><testsuite name="com.example.LoginTest" tests="3" failures="1" skipped="1"><testcase classname="com.example.LoginTest" name="validLogin" time="0.021"/><testcase classname="com.example.LoginTest" name="invalidPassword" time="0.014"><failure message="expected login rejection">java.lang.AssertionError: expected login rejection</failure></testcase><testcase classname="com.example.LoginTest" name="lockedAccount" time="0.000"><skipped/></testcase></testsuite></testsuites>` }
   ];
   const ingested = [];
   for (const report of reports) ingested.push(await ingest(parseJUnit(report.xml, { projectId: body.projectId || "default", build: report.build, environment: "demo", externalRunId: report.id, sourceType: "demo", sourceName: report.id })));

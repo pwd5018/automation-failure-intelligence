@@ -15,7 +15,7 @@ For the contribution and deployment workflow, see [docs/GITHUB_WORKFLOW.md](docs
 
 ## Current behavior
 
-The current model is intentionally simple and truthful:
+The current model is intentionally simple and truthful. The active ingestion path is TestNG-produced JUnit XML; it uses the generic JUnit parser and does not infer TestNG retries or framework-specific behavior:
 
 - Every raw testcase is one logical result by default.
 - `PASSED` counts as passed.
@@ -28,7 +28,7 @@ The current model is intentionally simple and truthful:
 
 ## Dashboard demos
 
-The dashboard loads four stable demo runs: a baseline mixed run, a clean pass, an expanded run with additional tests, and a shared-failure run that demonstrates grouping. The `Load demo runs` button loads or refreshes this pack without creating duplicate copies.
+The dashboard loads one small stable TestNG-style JUnit demo run with a passed testcase, a failed testcase, and a skipped testcase. The `Load demo runs` button replaces older demo runs before loading this pack. Demo data is separate from the TestNG JUnit ingestion path.
 
 The test suite includes malformed, parameterized, nested, empty, large-report, and explicit framework-adapter fixtures. The dashboard reports source statuses directly and does not infer retries from status sequences.
 
@@ -40,11 +40,13 @@ For Vercel, the Supabase integration can provide `POSTGRES_URL` and related vari
 
 ## API
 
-- `POST /api/test-runs/preview` - inspect a JUnit XML report without storing it.
-- `POST /api/test-runs` - ingest a JUnit XML report.
+- `POST /api/test-runs/preview` - inspect a TestNG JUnit XML report without storing it.
+- `POST /api/test-runs` - ingest a TestNG JUnit XML report.
 - `GET /api/test-runs` - list ingested runs; supports `status` and `q` filters.
 - `GET /api/health` - report storage mode and safe connection diagnostics.
 - `GET /api/failure-groups` - list confirmed failure groups.
 - `POST /api/demo/seed` - load the stable demo-run pack.
+
+To reset the hosted PostgreSQL dataset, run `npm run purge:storage` in dry-run mode first, then rerun with `PURGE_CONFIRM=DELETE_ALL_AFI_DATA`. It deletes all stored runs, normalized testcase rows through cascade, and failure groups; it never runs during application startup.
 
 Authentication, deeper framework-specific result transformations, normalized storage, and real Jira integration are future work. Current framework adapters identify only explicitly declared report metadata; they do not infer framework behavior.
