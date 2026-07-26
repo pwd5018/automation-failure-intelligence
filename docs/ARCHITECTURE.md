@@ -13,6 +13,7 @@ The application is an Express service serving a responsive static dashboard.
 7. Failed and error results create exact normalized failure groups.
 8. During Phase 4, Postgres keeps the existing JSONB run/group payloads as the API compatibility and provenance source while adding indexed run columns and `afi_test_results` source rows.
 9. Without a usable database, the service remains available with in-memory storage.
+10. Phase 6 result detail reads one logical testcase by run and result ID, returning source evidence and run provenance without exposing the raw XML payload.
 
 ## Data contract
 
@@ -34,6 +35,6 @@ The normalized schema is intentionally additive. New writes populate these colum
 
 The separate `public/developer.html` workspace runs the Phase 5 API checks without cluttering the product dashboard. It is opened from the main dashboard in a new tab and is intended to grow with future diagnostics.
 
-Phase 6 is the planned focused result-detail surface for one reported testcase, keeping investigation detail separate from the lightweight run dashboard. Phase 7 is reserved for external ingestion and collaboration.
+Phase 6 Slice 1 provides `GET /api/test-runs/:runId/results/:testId` for one reported testcase, keeping the detail contract separate from the lightweight run dashboard. The remaining Phase 6 work is the dashboard detail surface, evidence navigation, and mobile/deployment validation. Phase 7 is reserved for external ingestion and collaboration.
 
 The run provenance is stored in the JSONB payload and additive `afi_runs` columns (`source_type`, `source_name`, `external_run_id`, `content_hash`, and `provenance`) so normalized reads retain the source boundary without changing the API result semantics.
