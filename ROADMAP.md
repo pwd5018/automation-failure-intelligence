@@ -87,7 +87,8 @@ Add a focused result-detail surface for investigating one reported testcase at a
 
 - Slice 1 (implemented): `GET /api/test-runs/:runId/results/:testId` returns source name, suite, class, parameters, source order, status, duration, failure/error evidence, provenance, and explicit attempt data without returning raw XML.
 - Data-provider slice (implemented): metadata-rich repeated identities collapse into iterations/attempts; metadata-poor or ambiguous repeated identities remain grouped as `NEEDS REVIEW` with raw records and observed counts.
-- Remaining slices: add the dashboard detail surface, connect failure-group evidence to it, and complete mobile/Vercel validation.
+- Result-detail slice (implemented): result rows and failure evidence open a focused detail workspace with iteration totals, outcome counts, and per-attempt evidence.
+- Remaining gate: complete mobile/Vercel validation for the detail workspace.
 - Mobile-friendly navigation from the run workspace and failure evidence.
 - Preserve the exact source contract and keep the main dashboard lightweight.
 
