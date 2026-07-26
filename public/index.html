@@ -345,6 +345,16 @@
             background: #fbfcfe
         }
 
+        .test-row.result-link {
+            cursor: pointer
+        }
+
+        .test-row.result-link:hover, .test-row.result-link:focus {
+            background: #f4f5ff;
+            border-color: #cfd4ff;
+            outline: none
+        }
+
         .test-name {
             font-weight: 750;
             overflow-wrap: anywhere
@@ -424,6 +434,87 @@
             margin-top: 18px
         }
 
+        .detail-toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 12px;
+            flex-wrap: wrap
+        }
+
+        .detail-back {
+            background: #eef0ff;
+            color: #4b57c5
+        }
+
+        .detail-summary {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            gap: 8px;
+            margin: 16px 0
+        }
+
+        .detail-stat {
+            padding: 10px;
+            border-radius: 10px;
+            background: #f7f8fb;
+            text-align: center
+        }
+
+        .detail-stat b, .detail-stat span {
+            display: block
+        }
+
+        .detail-stat b {
+            font-size: 18px
+        }
+
+        .detail-stat span {
+            color: #7b8699;
+            font-size: 11px
+        }
+
+        .iteration-list {
+            display: grid;
+            gap: 10px
+        }
+
+        .iteration-card {
+            border: 1px solid #e6eaf2;
+            border-radius: 12px;
+            padding: 13px;
+            background: #fbfcfe
+        }
+
+        .iteration-heading {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap
+        }
+
+        .attempt-detail {
+            display: grid;
+            gap: 7px;
+            margin-top: 10px
+        }
+
+        .attempt-detail-row {
+            display: grid;
+            grid-template-columns: 90px 90px minmax(0, 1fr);
+            gap: 8px;
+            align-items: start;
+            padding: 8px;
+            border-radius: 8px;
+            background: #f7f8fb;
+            font-size: 12px
+        }
+
+        .attempt-detail-row .muted {
+            font-size: 12px
+        }
+
         .detail pre {
             white-space: pre-wrap;
             background: #f7f8fb;
@@ -484,6 +575,10 @@
                 grid-template-columns:repeat(3, 1fr)
             }
 
+            .detail-summary {
+                grid-template-columns:repeat(4, 1fr)
+            }
+
             .hero {
                 align-items: flex-start;
                 flex-direction: column
@@ -512,6 +607,10 @@
             }
 
             .summary-metrics {
+                grid-template-columns:repeat(2, 1fr)
+            }
+
+            .detail-summary {
                 grid-template-columns:repeat(2, 1fr)
             }
 
@@ -698,7 +797,8 @@
             const evidence = finalAttempt?.message ? '<div class="test-meta">' + esc(finalAttempt.message) + '</div>' : '';
             const history = attempts.length > 1 || test.needsReview ? '<div class="attempt-history" aria-label="Attempt history">' + attempts.map((attempt, index) => '<span class="attempt ' + esc(String(attempt.rawStatus || attempt.status || '').toLowerCase()) + '" title="' + esc(attempt.message || '') + '">Attempt ' + (index + 1) + ': ' + esc(String(attempt.rawStatus || attempt.status || 'UNKNOWN').toUpperCase()) + '</span>').join('<span class="attempt-arrow" aria-hidden="true">→</span>') + '</div>' : '';
             const observed = test.needsReview && test.observed ? '<div class="test-meta">Observed records: ' + test.observed.passed + ' passed, ' + test.observed.failed + ' failed, ' + test.observed.errors + ' errors, ' + test.observed.skipped + ' skipped</div><div class="test-meta">' + esc(test.reviewReason || 'Sequence needs review') + '</div>' : '';
-            return '<div id="test-' + esc(test.id) + '" class="test-row"><div><div class="test-name">' + esc(test.name) + '</div><div class="test-meta">' + esc(test.className || test.suite || '') + ' - Reported directly by the source XML</div>' + observed + evidence + '</div><div class="test-history"><span class="' + esc(value) + '">' + esc(test.needsReview ? 'NEEDS REVIEW' : value.toUpperCase()) + '</span>' + history + '</div></div>'
+            const runId = currentRun?.id || currentRun?.runId || '';
+            return '<div id="test-' + esc(test.id) + '" class="test-row result-link" role="button" tabindex="0" title="Open result details" onclick="openTestDetail(\'' + esc(runId) + '\',\'' + esc(test.id) + '\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \') openTestDetail(\'' + esc(runId) + '\',\'' + esc(test.id) + '\')"><div><div class="test-name">' + esc(test.name) + '</div><div class="test-meta">' + esc(test.className || test.suite || '') + ' - Reported directly by the source XML</div>' + observed + evidence + '</div><div class="test-history"><span class="' + esc(value) + '">' + esc(test.needsReview ? 'NEEDS REVIEW' : value.toUpperCase()) + '</span>' + history + '</div></div>'
         }).join('') : '<p class="muted">No matching test results.</p>';
     }
 
@@ -736,14 +836,55 @@
         refreshGroups();
     }
 
+    function detailStatus(test) {
+        return test.needsReview ? 'NEEDS REVIEW' : String(test.finalStatus || 'unknown').toUpperCase();
+    }
+
+    function detailGroupKey(test) {
+        if (!test.dataProvider) return test.identity;
+        return String(test.identity || '').split('#').slice(0, 2).join('#');
+    }
+
+    function renderTestDetail(payload) {
+        const result = payload.result;
+        const siblings = (currentRun?.logicalTests || []).filter(test => detailGroupKey(test) === detailGroupKey(result));
+        const iterations = siblings.length ? siblings : [result];
+        const counts = {
+            passed: iterations.filter(test => test.finalStatus === 'passed').length,
+            failed: iterations.filter(test => test.finalStatus === 'failed').length,
+            errors: iterations.filter(test => test.finalStatus === 'error').length,
+            skipped: iterations.filter(test => test.finalStatus === 'skipped').length,
+            retries: iterations.reduce((total, test) => total + (test.retryCount || 0), 0),
+            flaky: iterations.filter(test => test.flaky).length,
+            review: iterations.filter(test => test.needsReview).length
+        };
+        const iterationMarkup = iterations.map((test, index) => {
+            const attempts = Array.isArray(test.attempts) ? test.attempts : [];
+            const attemptsMarkup = attempts.map((attempt, attemptIndex) => '<div class="attempt-detail-row"><b>Attempt ' + (attempt.attemptNumber || attemptIndex + 1) + '</b><span>' + esc(String(attempt.rawStatus || attempt.status || 'UNKNOWN').toUpperCase()) + '</span><span>' + esc(attempt.message || attempt.stackTrace || 'No additional evidence reported.') + '</span></div>').join('');
+            return '<article class="iteration-card"><div class="iteration-heading"><div><b>Iteration ' + (index + 1) + '</b><div class="muted">' + esc(test.parameters || 'No parameter signature reported') + '</div></div><span class="status ' + esc(String(test.finalStatus || 'unknown')) + '">' + esc(detailStatus(test)) + '</span></div>' + (test.needsReview ? '<div class="notice"><b>Needs review:</b> ' + esc(test.reviewReason || 'The source did not provide enough metadata to classify this sequence.') + '<br>Observed: ' + test.observed.passed + ' passed, ' + test.observed.failed + ' failed, ' + test.observed.errors + ' errors, ' + test.observed.skipped + ' skipped.</div>' : '') + '<div class="attempt-detail">' + attemptsMarkup + '</div></article>';
+        }).join('');
+        $('detail').innerHTML = '<div class="detail-toolbar"><div><h2>' + esc(result.name) + '</h2><div class="muted">' + esc(result.className || result.suite || '') + ' - ' + esc(result.suite || '') + '</div></div><button class="detail-back" onclick="closeTestDetail()">Back to results</button></div><p class="muted">Result details from ' + esc(payload.run.build || payload.run.id) + ' · ' + esc(payload.run.environment || 'default') + '</p><div class="detail-summary"><div class="detail-stat"><b>' + iterations.length + '</b><span>Iterations</span></div><div class="detail-stat"><b>' + counts.passed + '</b><span>Passed</span></div><div class="detail-stat"><b>' + counts.failed + '</b><span>Failed</span></div><div class="detail-stat"><b>' + counts.errors + '</b><span>Errors</span></div><div class="detail-stat"><b>' + counts.skipped + '</b><span>Skipped</span></div><div class="detail-stat"><b>' + counts.retries + '</b><span>Retries</span></div><div class="detail-stat"><b>' + counts.flaky + '</b><span>Flaky</span></div><div class="detail-stat"><b>' + counts.review + '</b><span>Needs review</span></div></div><h3>Iterations and attempts</h3><div class="iteration-list">' + iterationMarkup + '</div>';
+        $('detail').scrollIntoView({behavior: 'smooth', block: 'start'});
+    }
+
+    function closeTestDetail() {
+        renderDetail(selected ? groups.find(group => group.id === selected) : null);
+    }
+
+    async function openTestDetail(runId, testId) {
+        selected = null;
+        const local = (currentRun?.logicalTests || []).find(test => test.id === testId);
+        if (!runId) return local && renderTestDetail({run: currentRun, result: local});
+        const response = await fetch('/api/test-runs/' + runId + '/results/' + testId);
+        if (!response.ok) return alert('Result details are not available for this report.');
+        renderTestDetail(await response.json());
+    }
+
     async function openEvidence(runId, testId) {
         const response = await fetch('/api/test-runs/' + runId);
         if (!response.ok) return;
         setRun(await response.json());
-        setTimeout(() => {
-            const row = document.getElementById('test-' + testId);
-            if (row) row.scrollIntoView({behavior: 'smooth', block: 'center'});
-        }, 50);
+        await openTestDetail(runId, testId);
     }
 
     function renderDetail(group) {

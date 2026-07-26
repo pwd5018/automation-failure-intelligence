@@ -37,6 +37,6 @@ The normalized schema is intentionally additive. New writes populate these colum
 
 The separate `public/developer.html` workspace runs the Phase 5 API checks without cluttering the product dashboard. It is opened from the main dashboard in a new tab and is intended to grow with future diagnostics.
 
-Phase 6 Slice 1 provides `GET /api/test-runs/:runId/results/:testId` for one reported testcase, keeping the detail contract separate from the lightweight run dashboard. The remaining Phase 6 work is the dashboard detail surface, evidence navigation, and mobile/deployment validation. Phase 7 is reserved for external ingestion and collaboration.
+Phase 6 Slice 1 provides `GET /api/test-runs/:runId/results/:testId` for one reported testcase, keeping the detail contract separate from the lightweight run dashboard. The result-detail workspace now opens from test rows and failure evidence, groups sibling logical results as data-provider iterations, and renders each attempt with its source status and evidence. The remaining Phase 6 gate is mobile/deployment validation. Phase 7 is reserved for external ingestion and collaboration.
 
 The run provenance is stored in the JSONB payload and additive `afi_runs` columns (`source_type`, `source_name`, `external_run_id`, `content_hash`, and `provenance`) so normalized reads retain the source boundary without changing the API result semantics.

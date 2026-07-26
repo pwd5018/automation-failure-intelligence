@@ -23,6 +23,7 @@ The current model is intentionally simple and truthful. The active ingestion pat
 - `FAILED` and `ERROR` are exposed as separate summary counts.
 - A single `SKIPPED` is a true skip. With explicit TestNG retry metadata, repeated identities are split into data-provider iterations and retry attempts.
 - Without that metadata, repeated identities are not collapsed: they become one `NEEDS REVIEW` group containing raw records and observed pass/fail/error/skip counts.
+- Click any result row or failure-group evidence to open its detail workspace with iteration totals and per-attempt source evidence.
 - A retry sequence ending in `PASSED` is flaky and passed; a sequence ending in `FAILED`, `ERROR`, or exhausted `SKIPPED` is not flaky and is failed/error.
 - Retry count is the number of additional attempts beyond the first logical test record.
 - Failure groups appear in a selected run only when at least two failed/error tests share a signature.

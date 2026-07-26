@@ -333,6 +333,10 @@ test("dashboard source renders adapter and report metadata fields", async () => 
   assert.match(dashboard, /needs-review/);
   assert.match(dashboard, /Observed records/);
   assert.match(dashboard, /NEEDS REVIEW/);
+  assert.match(dashboard, /openTestDetail/);
+  assert.match(dashboard, /detailGroupKey/);
+  assert.match(dashboard, /Iterations and attempts/);
+  assert.match(dashboard, /Back to results/);
   assert.match(dashboard, /retry attempts are retained inside the result history/);
   assert.match(dashboard, /Attempt history/);
   assert.match(dashboard, /developer\.html/);
@@ -425,6 +429,23 @@ test("result detail distinguishes missing runs and missing results", async () =>
   const missingResult = await fetch(`${baseUrl}/api/test-runs/${ingested.run.id}/results/missing-test`);
   assert.equal(missingResult.status, 404);
   assert.equal((await missingResult.json()).error, "Test result not found");
+});
+
+test("result detail exposes data-provider iteration and review evidence", async () => {
+  const collapsed = await (await uploadXml(await readFile(fixture("testng-dataprovider-collapse.xml"), "utf8"), { sourceType: "testng-junit" })).json() as any;
+  const collapsedTest = collapsed.run.logicalTests.find((test: any) => test.parameters === "user=alice");
+  const collapsedDetail = await (await fetch(`${baseUrl}/api/test-runs/${collapsed.run.id}/results/${collapsedTest.id}`)).json() as any;
+  assert.equal(collapsedDetail.result.dataProvider, true);
+  assert.equal(collapsedDetail.result.attempts.length, 2);
+  assert.equal(collapsedDetail.result.flaky, true);
+
+  const review = await (await uploadXml(await readFile(fixture("testng-dataprovider-review.xml"), "utf8"), { sourceType: "testng-junit" })).json() as any;
+  const reviewTest = review.run.logicalTests.find((test: any) => test.needsReview);
+  const reviewDetail = await (await fetch(`${baseUrl}/api/test-runs/${review.run.id}/results/${reviewTest.id}`)).json() as any;
+  assert.equal(reviewDetail.result.needsReview, true);
+  assert.equal(reviewDetail.result.observed.passed, 1);
+  assert.equal(reviewDetail.result.observed.skipped, 1);
+  assert.equal(reviewDetail.result.attempts.length, 2);
 });
 
 test("normalized storage schema includes provenance columns", async () => {

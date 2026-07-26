@@ -21,6 +21,7 @@ Use [GITHUB_WORKFLOW.md](GITHUB_WORKFLOW.md) to publish completed changes throug
 - All registered adapters have explicit-metadata fixtures; root metadata precedence and unknown fallback are covered.
 - TestNG true skips, retry skips, recovered retries, exhausted retries, and parameterized retry identities.
 - TestNG data-provider identities with explicit retry metadata collapse into logical iterations; metadata-poor repeated identities become `NEEDS REVIEW` with observed counts and raw history.
+- Result rows and failure evidence open the detail workspace, which shows iteration-level totals and each raw attempt's status/evidence.
 - Run search and status filters.
 - Storage health reporting.
 - Duplicate ingestion behavior.
