@@ -10,7 +10,7 @@ Automation Failure Intelligence is a private QA-triage workspace for understandi
 - `PASSED`, `FAILED`, `ERROR`, and `SKIPPED` remain distinct source outcomes.
 - The current demo uses unique test names and does not simulate parameterized tests.
 - Retry and flaky inference are disabled.
-- A stable demo-run pack and mock JUnit fixtures are available.
+- A stable one-run TestNG-style JUnit demo pack and mock JUnit fixtures are available.
 - Supabase/Postgres persistence is active in Vercel with an in-memory local fallback.
 - Phase 3 real-world JUnit compatibility is implemented locally: nested suites, report metadata, empty reports, parameterized fixtures, large reports, and all registered explicit adapter labels are covered.
 - Large-report coverage is active: upload size is explicit and repeated-identity detection is linear rather than quadratic.

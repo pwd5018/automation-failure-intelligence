@@ -4,6 +4,8 @@
 
 Run `npm test`. The suite builds TypeScript, starts the service, exercises the API, validates representative XML fixtures, and verifies malformed XML rejection.
 
+For a database reset, run `npm run purge:storage` first to inspect counts. Execute the deletion only with `PURGE_CONFIRM=DELETE_ALL_AFI_DATA npm run purge:storage` against the intended PostgreSQL environment.
+
 Use [GITHUB_WORKFLOW.md](GITHUB_WORKFLOW.md) to publish completed changes through the remote GitHub branch and Vercel workflow.
 
 ## Required coverage
@@ -33,7 +35,7 @@ Use [GITHUB_WORKFLOW.md](GITHUB_WORKFLOW.md) to publish completed changes throug
 ## Vercel smoke test
 
 1. Open `/api/health` and confirm `storage` is `postgres`.
-2. Load the stable demo-run pack and inspect the clean, baseline, expanded, and shared-failure runs.
+2. Load the stable TestNG JUnit demo run and inspect its passed, failed, and skipped results.
 3. Confirm the run appears in history.
 4. Refresh the dashboard.
 5. Trigger a redeploy.

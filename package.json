@@ -6,7 +6,8 @@
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
-    "test": "npm run build && node --test dist/test/reporting.test.js"
+    "test": "npm run build && node --test dist/test/reporting.test.js",
+    "purge:storage": "node scripts/purge-storage.mjs"
   },
   "dependencies": {
     "express": "^5.1.0",
