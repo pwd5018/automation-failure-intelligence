@@ -318,6 +318,47 @@ test("ingested runs expose stable source provenance", async () => {
   assert.equal(result.run.provenance.ingestedAt, result.run.ingestedAt);
 });
 
+test("result detail returns the exact reported testcase and run provenance", async () => {
+  const xml = "<?xml version=\"1.0\"?><testsuites name=\"Detail report\"><testsuite name=\"Checkout / Chrome\"><testcase classname=\"CheckoutTest\" name=\"submitOrder\" parameters=\"region=us-east\" time=\"1.25\"><failure message=\"checkout failed\">stack line 1\nstack line 2</failure></testcase></testsuite></testsuites>";
+  const response = await uploadXml(xml, { projectId: "detail-project", build: "detail-build", environment: "staging", externalRunId: "detail-run" });
+  const ingested = await response.json() as any;
+  assert.equal(response.status, 201);
+  const testId = ingested.run.logicalTests[0].id;
+
+  const detailResponse = await fetch(`${baseUrl}/api/test-runs/${ingested.run.id}/results/${testId}`);
+  const detail = await detailResponse.json() as any;
+  assert.equal(detailResponse.status, 200);
+  assert.deepEqual(detail.run.provenance, ingested.run.provenance);
+  assert.equal(detail.run.build, "detail-build");
+  assert.equal(detail.result.id, testId);
+  assert.equal(detail.result.name, "submitOrder");
+  assert.equal(detail.result.suite, "Checkout / Chrome");
+  assert.equal(detail.result.className, "CheckoutTest");
+  assert.equal(detail.result.parameters, "region=us-east");
+  assert.equal(detail.result.finalStatus, "failed");
+  assert.equal(detail.result.attempts[0].order, 1);
+  assert.equal(detail.result.attempts[0].rawStatus, "FAILED");
+  assert.equal(detail.result.attempts[0].duration, "1.25");
+  assert.equal(detail.result.attempts[0].message, "checkout failed");
+  assert.equal(detail.result.attempts[0].stackTrace, "stack line 1\nstack line 2");
+  assert.equal(detail.result.attempts[0].attemptNumber, 1);
+  assert.equal(detail.result.retryCount, 0);
+  assert.equal(detail.result.flaky, false);
+  assert.equal("rawReport" in detail, false);
+});
+
+test("result detail distinguishes missing runs and missing results", async () => {
+  const missingRun = await fetch(`${baseUrl}/api/test-runs/missing-run/results/missing-test`);
+  assert.equal(missingRun.status, 404);
+  assert.equal((await missingRun.json()).error, "Test run not found");
+
+  const xml = "<?xml version=\"1.0\"?><testsuites><testsuite name=\"Missing detail\"><testcase name=\"present\"/></testsuite></testsuites>";
+  const ingested = await (await uploadXml(xml, { externalRunId: "missing-result-run" })).json() as any;
+  const missingResult = await fetch(`${baseUrl}/api/test-runs/${ingested.run.id}/results/missing-test`);
+  assert.equal(missingResult.status, 404);
+  assert.equal((await missingResult.json()).error, "Test result not found");
+});
+
 test("normalized storage schema includes provenance columns", async () => {
   const storageSource = await readFile(path.join(process.cwd(), "src", "storage.ts"), "utf8");
   assert.match(storageSource, /source_type/);

@@ -331,6 +331,24 @@ async function ingest(run: TestRun): Promise<TestRun> {
   return run;
 }
 function publicRun(run: TestRun): Omit<TestRun, "rawReport"> { const { rawReport: _rawReport, ...safe } = run; return safe; }
+function publicResultDetail(run: TestRun, test: LogicalTest): { run: Record<string, unknown>; result: LogicalTest } {
+  return {
+    run: {
+      id: run.id,
+      projectId: run.projectId,
+      build: run.build,
+      environment: run.environment,
+      adapter: run.adapter,
+      adapterVersion: run.adapterVersion,
+      reportMetadata: run.reportMetadata,
+      resultStatus: run.resultStatus,
+      processingStatus: run.processingStatus,
+      ingestedAt: run.ingestedAt,
+      provenance: run.provenance
+    },
+    result: test
+  };
+}
 function preview(run: TestRun) { return { runId: run.id, projectId: run.projectId, build: run.build, environment: run.environment, adapter: run.adapter, adapterVersion: run.adapterVersion, reportMetadata: run.reportMetadata, retryAnalyzerEnabled: run.retryAnalyzerEnabled, maxRetries: run.maxRetries, retryReportingProfile: run.retryReportingProfile, provenance: run.provenance, quality: run.quality, warnings: run.warnings, summary: run.summary, resultStatus: run.resultStatus, processingStatus: run.processingStatus, logicalTests: run.logicalTests.map(test => ({ name: test.name, suite: test.suite, className: test.className, parameters: test.parameters, finalStatus: test.finalStatus, attempts: test.attempts.map(attempt => ({ attemptNumber: attempt.attemptNumber, rawStatus: attempt.rawStatus, status: attempt.status })), retryCount: test.retryCount, flaky: test.flaky, recoveredAfterRetry: test.recoveredAfterRetry })) }; }
 
 function applyStoredState(state: { runs: any[]; groups: any[] }): void {
@@ -362,6 +380,13 @@ app.get("/api/test-runs", async (req, res) => {
   res.json(result);
 });
 app.get("/api/test-runs/:id", async (req, res) => { await refreshPersistentState(); const run = runs.get(req.params.id); run ? res.json(publicRun(run)) : res.status(404).json({ error: "Test run not found" }); });
+app.get("/api/test-runs/:runId/results/:testId", async (req, res) => {
+  await refreshPersistentState();
+  const run = runs.get(req.params.runId);
+  if (!run) return res.status(404).json({ error: "Test run not found" });
+  const test = run.logicalTests.find(item => item.id === req.params.testId);
+  return test ? res.json(publicResultDetail(run, test)) : res.status(404).json({ error: "Test result not found" });
+});
 app.post("/api/test-runs/preview", upload.single("file"), (req, res) => { if (!req.file) return res.status(400).json({ error: "Attach a JUnit XML file using the 'file' field." }); try { res.json(preview(parseJUnit(req.file.buffer.toString("utf8"), req.body))); } catch (error) { res.status(400).json({ error: error instanceof Error ? error.message : "Invalid JUnit XML" }); } });
 app.post("/api/test-runs", upload.single("file"), async (req, res) => { if (!req.file) return res.status(400).json({ error: "Attach a JUnit XML file using the 'file' field." }); try { const run = parseJUnit(req.file.buffer.toString("utf8"), { ...req.body, sourceType: "manual-upload", sourceName: req.file.originalname }); if (run.quality.status === "QUARANTINED") return res.status(422).json({ error: "Report was quarantined and was not ingested.", quality: run.quality, preview: preview(run) }); const stored = await ingest(run); res.status(201).json({ run: publicRun(stored), preview: preview(stored) }); } catch (error) { res.status(400).json({ error: error instanceof Error ? error.message : "Invalid JUnit XML" }); } });
 app.get("/api/failure-groups", async (req, res) => {
