@@ -277,7 +277,7 @@ test("persistent reads and dashboard bootstrap avoid stale instance state", asyn
   assert.match(serverSource, /refreshPersistentState/);
   assert.match(serverSource, /await refreshPersistentState\(\)/);
   assert.match(dashboard, /async function boot\(\)/);
-  assert.match(dashboard, /await demo\(\);await refreshRuns\(\);await refreshGroups\(\)/);
+  assert.match(dashboard, /await demo\(\);\s*await refreshRuns\(\);\s*await refreshGroups\(\)/);
 });
 
 test("report quality exposes declared-count warnings without changing source results", async () => {
@@ -373,6 +373,6 @@ test("developer checks live in a separate mobile workspace", async () => {
   assert.match(developerDashboard, /Phase 5 checks/);
   assert.match(developerDashboard, /Developer workspace/);
   assert.match(developerDashboard, /async function devAll\(\)/);
-  assert.match(developerDashboard, /sourceType===.manual-upload./);
+  assert.match(developerDashboard, /sourceType\s*===\s*['"]manual-upload['"]/);
   assert.match(developerDashboard, /id="devAll"/);
 });
