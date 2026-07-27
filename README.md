@@ -31,7 +31,7 @@ The current model is intentionally simple and truthful. The active ingestion pat
 
 ## Dashboard demos
 
-The dashboard loads three stable TestNG-style JUnit demo runs: a basic retry/skip run, a metadata-rich data-provider run that collapses into iterations, and a metadata-poor data-provider run that needs review. The `Load demo runs` button replaces older demo runs before loading this pack. Demo data is separate from the TestNG JUnit ingestion path.
+The dashboard loads three stable TestNG-style JUnit demo runs: a basic retry/skip run, a metadata-rich data-provider run that collapses into iterations, and a metadata-poor data-provider run that needs review. The `Load demo runs` button replaces older demo runs before loading this pack; normal dashboard startup reads persisted run history and does not reset demo data. Demo data is separate from the TestNG JUnit ingestion path.
 
 The test suite includes malformed, parameterized, nested, empty, large-report, TestNG true-skip, and TestNG retry-skip fixtures. The dashboard reports source statuses directly and exposes retry attempts under one logical result.
 
