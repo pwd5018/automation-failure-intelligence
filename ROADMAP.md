@@ -108,10 +108,10 @@ Completed slices:
 - Add center-panel tabs for Test Results and Failure Groups.
 - Move report ingestion into an accessible responsive drawer while preserving the existing upload element IDs and handlers.
 - Polish inspector interactions with copy-summary/evidence controls, visible copy feedback, and keyboard activation for failure-group rows.
+- Establish a Jira-inspired visual system with a project navigation rail, compact triage hierarchy, stronger status accents, issue-style result cards, and responsive navigation behavior.
 
 Planned follow-up slices:
 
-- Establish the Jira-inspired visual system: project/navigation rail, compact triage toolbar, issue-style result cards, stronger status hierarchy, and a responsive inspector overlay while preserving existing dashboard contracts.
 - Complete desktop, phone-sized, accessibility, and Vercel validation.
 
 Phase 7 handoff: the current UI foundation was merged through [PR #9](https://github.com/pwd5018/automation-failure-intelligence/pull/9) at merge commit `9dedf370ed0c0f4f25a8b9fe5089e0cb79dd4766`. Validation passed with `npm.cmd test` (33 tests) and live keyboard/copy inspector checks. The remaining production gate is the full desktop, phone-sized, accessibility, and Vercel validation record.

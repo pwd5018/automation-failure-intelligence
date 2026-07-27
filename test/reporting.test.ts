@@ -357,6 +357,9 @@ test("dashboard source renders adapter and report metadata fields", async () => 
   assert.match(dashboard, /copyInspectorText/);
   assert.match(dashboard, /aria-live="polite"/);
   assert.match(dashboard, /role="button" tabindex="0" aria-label="Open failure group/);
+  assert.match(dashboard, /class="project-rail"/);
+  assert.match(dashboard, /aria-label="Project navigation"/);
+  assert.match(dashboard, /id="runWorkspace"/);
   assert.match(dashboard, /developer\.html/);
   assert.doesNotMatch(dashboard, /async function devAll\(\)/);
 });
