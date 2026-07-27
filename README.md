@@ -54,4 +54,4 @@ For Vercel, the Supabase integration can provide `POSTGRES_URL` and related vari
 
 To reset the hosted PostgreSQL dataset, run `npm run purge:storage` in dry-run mode first, then rerun with `PURGE_CONFIRM=DELETE_ALL_AFI_DATA`. It deletes all stored runs, normalized testcase rows through cascade, and failure groups; it never runs during application startup.
 
-Authentication, deeper framework-specific result transformations, normalized storage, and real Jira integration are future work. Current framework adapters identify only explicitly declared report metadata; they do not infer framework behavior.
+Authentication, deeper framework-specific result transformations, and real Jira integration are future work. Normalized testcase and failure-group occurrence storage is active for PostgreSQL, while the API preserves its existing JSONB-compatible response contract. Retry policy configuration is persisted per project, but source metadata remains the authority for retry interpretation. Current framework adapters identify only explicitly declared report metadata; they do not infer framework behavior.

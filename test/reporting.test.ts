@@ -214,7 +214,9 @@ test("Phase 4 storage schema preserves normalized source-record seams", async ()
   assert.match(storageSource, /SELECT id, run_id, source_order/);
   assert.match(storageSource, /jsonValue\(run\)/);
   assert.match(storageSource, /jsonValue\(record\)/);
-  assert.match(storageSource, /jsonValue\(group\)/);
+  assert.match(storageSource, /groupPayload\(group\)/);
+  assert.match(storageSource, /afi_failure_group_occurrences/);
+  assert.match(storageSource, /afi_retry_configs/);
 });
 
 test("mock report pack covers the main raw JUnit shapes", async () => {
@@ -393,6 +395,26 @@ test("ingested runs expose stable source provenance", async () => {
   assert.match(result.preview.provenance.contentHash, /^[a-f0-9]{64}$/);
   assert.equal(result.run.provenance.contentHash, result.preview.provenance.contentHash);
   assert.equal(result.run.provenance.ingestedAt, result.run.ingestedAt);
+});
+
+test("retry configuration accepts validated values and returns the stored project policy", async () => {
+  const projectId = "retry-config-regression";
+  const update = await fetch(`${baseUrl}/api/retry-config`, {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ projectId, retryAnalyzerEnabled: true, maxRetries: 3, skippedSequencePolicy: "SKIPPED_THEN_TERMINAL_IS_RETRY", ordinarySkippedPolicy: "COUNT_AS_SKIPPED", version: "policy-v2" })
+  });
+  const updated = await update.json() as any;
+  assert.equal(update.status, 200);
+  assert.equal(updated.projectId, projectId);
+  assert.equal(updated.retryAnalyzerEnabled, true);
+  assert.equal(updated.maxRetries, 3);
+  assert.equal(updated.skippedSequencePolicy, "SKIPPED_THEN_TERMINAL_IS_RETRY");
+  assert.equal(updated.version, "policy-v2");
+
+  const read = await fetch(`${baseUrl}/api/retry-config?projectId=${projectId}`);
+  assert.deepEqual(await read.json(), updated);
+  assert.equal((await fetch(`${baseUrl}/api/retry-config`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ projectId, maxRetries: 101 }) })).status, 400);
 });
 
 test("result detail returns the exact reported testcase and run provenance", async () => {

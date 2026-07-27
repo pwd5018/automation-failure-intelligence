@@ -25,9 +25,9 @@ The parser also exposes basic report attributes and `<properties>` values as met
 
 ## Storage
 
-The current `afi_runs` and `afi_failure_groups` JSONB payloads remain intact during the Phase 4 transition. `afi_runs` now has additive normalized metadata columns, and `afi_test_results` stores the future relational source-record seam with indexes for run/order, run/identity, and run/status lookups.
+The current `afi_runs` and `afi_failure_groups` JSONB payloads remain compatible with older records. `afi_runs` now has additive normalized metadata columns, `afi_test_results` stores source records with indexes for run/order, run/identity, and run/status lookups, and `afi_failure_group_occurrences` stores failure evidence outside the group JSONB payload. PostgreSQL testcase and occurrence writes use bounded bulk batches.
 
-The normalized schema is intentionally additive. New writes populate these columns and rows transactionally, and Postgres-backed reads now reconstruct testcase records and logical tests from normalized rows behind the unchanged API contract. Runs without normalized rows fall back to their stored JSONB payload for compatibility.
+The normalized schema is intentionally additive. New writes populate these columns and rows transactionally, and Postgres-backed reads now reconstruct testcase records and failure-group evidence from normalized rows behind the unchanged API contract. Runs or groups without normalized rows fall back to their stored JSONB payload for compatibility.
 
 
 ## Report quality
@@ -40,5 +40,7 @@ The separate `public/developer.html` workspace runs the Phase 5 API checks witho
 Phase 6 Slice 1 provides `GET /api/test-runs/:runId/results/:testId` for one reported testcase, keeping the detail contract separate from the lightweight run dashboard. The result-detail workspace now opens from test rows and failure evidence, groups sibling logical results as data-provider iterations, and renders each attempt with its source status and evidence. The remaining Phase 6 gate is mobile/deployment validation. Phase 7 is reserved for external ingestion and collaboration.
 
 Result dispositions are stored separately from the source XML and failure groups. A disposition is keyed to the run result and retains classification, Jira reference, notes, test identity, and the normalized failure signature. Later matching results receive prior dispositions as suggestions; the application never applies them automatically, allowing changed failures to receive a new reason.
+
+Project retry policies are stored in `afi_retry_configs` and validated by the retry-config API. Persisting a policy does not override the source-truth boundary: retry/data-provider aggregation still requires explicit TestNG metadata.
 
 The run provenance is stored in the JSONB payload and additive `afi_runs` columns (`source_type`, `source_name`, `external_run_id`, `content_hash`, and `provenance`) so normalized reads retain the source boundary without changing the API result semantics.

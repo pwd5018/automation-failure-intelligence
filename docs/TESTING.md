@@ -27,6 +27,9 @@ Use [GITHUB_WORKFLOW.md](GITHUB_WORKFLOW.md) to publish completed changes throug
 - Storage health reporting.
 - Duplicate ingestion behavior.
 - Failure-group persistence behavior where a database is available.
+- Failure-group occurrence rows remain recoverable independently of the bounded group JSONB payload.
+- Persistence failures return an error instead of a successful ingestion response.
+- Retry configuration accepts validated project policies and survives persistent reads.
 - Normalized Postgres reads reconstruct persisted testcase rows while legacy JSONB-only runs remain readable.
 - Report quality exposes declared-count warnings without changing parsed results.
 - Contract-breaking missing testcase names are quarantined before ingestion and failure-group creation.

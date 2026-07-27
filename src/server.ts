@@ -157,6 +157,7 @@ const groups = new Map<string, FailureGroup>();
 const dispositions = new Map<string, ResultDisposition>();
 const retryConfigs = new Map<string, RetryConfig>();
 let storage: Storage;
+let stateQueue = Promise.resolve();
 
 app.use(express.json());
 app.use(express.static(path.join(process.cwd(), "public")));
@@ -196,7 +197,7 @@ function signature(message: string, stack: string): string { return crypto.creat
 
 function getConfig(metadata: Record<string, any>): RetryConfig {
   const projectId = text(metadata.projectId || "default");
-  return {
+  return retryConfigs.get(projectId) ?? {
     projectId,
     retryAnalyzerEnabled: false,
     maxRetries: 0,
@@ -204,6 +205,18 @@ function getConfig(metadata: Record<string, any>): RetryConfig {
     ordinarySkippedPolicy: "COUNT_AS_SKIPPED",
     version: "raw-results-v1"
   };
+}
+
+async function withStateLock<T>(work: () => Promise<T>): Promise<T> {
+  const previous = stateQueue;
+  let release!: () => void;
+  stateQueue = new Promise<void>(resolve => { release = resolve; });
+  await previous;
+  try {
+    return await work();
+  } finally {
+    release();
+  }
 }
 
 function makeLogical(records: RawRecord[], isRetry: boolean, skippedPolicyValue: SkippedPolicy): LogicalTest | undefined {
@@ -448,13 +461,23 @@ function addFailureGroup(run: TestRun, test: LogicalTest): void {
 }
 
 async function ingest(run: TestRun): Promise<TestRun> {
-  const existing = runs.get(run.id);
-  if (existing) { existing.duplicate = true; return existing; }
-  runs.set(run.id, run);
-  run.logicalTests.filter(test => test.finalStatus === "failed" || test.finalStatus === "error").forEach(test => addFailureGroup(run, test));
-  await storage.saveRun(run);
-  for (const group of groups.values()) await storage.saveGroup(group);
-  return run;
+  return withStateLock(async () => {
+    const existing = runs.get(run.id);
+    if (existing) { existing.duplicate = true; return existing; }
+    const previousGroups = new Map<string, FailureGroup>([...groups.entries()].map(([key, group]) => [key, JSON.parse(JSON.stringify(group)) as FailureGroup]));
+    runs.set(run.id, run);
+    run.logicalTests.filter(test => test.finalStatus === "failed" || test.finalStatus === "error").forEach(test => addFailureGroup(run, test));
+    try {
+      await storage.saveRun(run);
+      for (const group of groups.values()) await storage.saveGroup(group);
+      return run;
+    } catch (error) {
+      runs.delete(run.id);
+      groups.clear();
+      previousGroups.forEach((group, key) => groups.set(key, group));
+      throw error;
+    }
+  });
 }
 function publicRun(run: TestRun): Omit<TestRun, "rawReport"> { const { rawReport: _rawReport, ...safe } = run; return safe; }
 function publicResultDetail(run: TestRun, test: LogicalTest): { run: Record<string, unknown>; result: LogicalTest; disposition?: ResultDisposition; suggestions: ResultDisposition[] } {
@@ -485,23 +508,48 @@ function publicResultDetail(run: TestRun, test: LogicalTest): { run: Record<stri
 }
 function preview(run: TestRun) { return { runId: run.id, projectId: run.projectId, build: run.build, environment: run.environment, adapter: run.adapter, adapterVersion: run.adapterVersion, reportMetadata: run.reportMetadata, retryAnalyzerEnabled: run.retryAnalyzerEnabled, maxRetries: run.maxRetries, retryReportingProfile: run.retryReportingProfile, provenance: run.provenance, quality: run.quality, warnings: run.warnings, summary: run.summary, resultStatus: run.resultStatus, processingStatus: run.processingStatus, logicalTests: run.logicalTests.map(test => ({ name: test.name, suite: test.suite, className: test.className, parameters: test.parameters, finalStatus: test.finalStatus, attempts: test.attempts.map(attempt => ({ attemptNumber: attempt.attemptNumber, rawStatus: attempt.rawStatus, status: attempt.status })), retryCount: test.retryCount, flaky: test.flaky, recoveredAfterRetry: test.recoveredAfterRetry, observed: test.observed, dataProvider: test.dataProvider, needsReview: test.needsReview, reviewReason: test.reviewReason })) }; }
 
-function applyStoredState(state: { runs: any[]; groups: any[]; dispositions?: any[] }): void {
+function applyStoredState(state: { runs: any[]; groups: any[]; dispositions?: any[]; retryConfigs?: any[] }): void {
   runs.clear();
   groups.clear();
   dispositions.clear();
+  retryConfigs.clear();
   state.runs.forEach(run => runs.set(run.id, run));
   state.groups.forEach(group => { if (!groups.has(group.signature)) groups.set(group.signature, group); });
   (state.dispositions || []).forEach(disposition => dispositions.set(`${disposition.runId}:${disposition.testId}`, disposition));
+  (state.retryConfigs || []).forEach(config => retryConfigs.set(config.projectId, config));
 }
 
 async function refreshPersistentState(): Promise<void> {
   if (!storage.persistent) return;
-  applyStoredState(await storage.load());
+  await withStateLock(async () => {
+    applyStoredState(await storage.load());
+  });
 }
 
 app.get("/api/retry-config", (req, res) => { const projectId = text(req.query.projectId || "default"); res.json(retryConfigs.get(projectId) ?? getConfig({ projectId })); });
 app.get("/api/health", (_req, res) => res.json({ ok: true, storage: storage.persistent ? "postgres" : "memory", storageVariable: storage.variable || null, storageError: storage.error || null }));
-app.put("/api/retry-config", (req, res) => { const projectId = text(req.body.projectId || "default"); const config: RetryConfig = { projectId, retryAnalyzerEnabled: false, maxRetries: 0, skippedSequencePolicy: "NORMAL_SKIPPED_SEMANTICS", ordinarySkippedPolicy: "COUNT_AS_SKIPPED", version: "raw-results-v1" }; retryConfigs.set(projectId, config); res.json(config); });
+app.put("/api/retry-config", async (req, res) => {
+  const body = req.body || {};
+  const projectId = text(body.projectId || "default");
+  const current = retryConfigs.get(projectId) || getConfig({ projectId });
+  const maxRetries = body.maxRetries === undefined ? current.maxRetries : Number(body.maxRetries);
+  if (!Number.isInteger(maxRetries) || maxRetries < 0 || maxRetries > 100) return res.status(400).json({ error: "maxRetries must be an integer between 0 and 100." });
+  if (body.skippedSequencePolicy !== undefined && body.skippedSequencePolicy !== "NORMAL_SKIPPED_SEMANTICS" && body.skippedSequencePolicy !== "SKIPPED_THEN_TERMINAL_IS_RETRY") return res.status(400).json({ error: "Invalid skippedSequencePolicy." });
+  if (body.ordinarySkippedPolicy !== undefined && body.ordinarySkippedPolicy !== "COUNT_AS_SKIPPED" && body.ordinarySkippedPolicy !== "EXCLUDE_FROM_LOGICAL_TOTALS") return res.status(400).json({ error: "Invalid ordinarySkippedPolicy." });
+  const config: RetryConfig = {
+    projectId,
+    retryAnalyzerEnabled: body.retryAnalyzerEnabled === undefined ? current.retryAnalyzerEnabled : bool(body.retryAnalyzerEnabled),
+    maxRetries,
+    skippedSequencePolicy: body.skippedSequencePolicy === undefined ? current.skippedSequencePolicy : body.skippedSequencePolicy,
+    ordinarySkippedPolicy: body.ordinarySkippedPolicy === undefined ? current.ordinarySkippedPolicy : body.ordinarySkippedPolicy,
+    version: typeof body.version === "string" && body.version.trim() ? body.version.trim() : current.version
+  };
+  await withStateLock(async () => {
+    retryConfigs.set(projectId, config);
+    await storage.saveRetryConfig(config);
+  });
+  res.json(config);
+});
 app.get("/api/test-runs", async (req, res) => {
   await refreshPersistentState();
   const requestedStatus = text(req.query.status).trim().toUpperCase();
@@ -546,12 +594,31 @@ app.patch("/api/test-runs/:runId/results/:testId/disposition", async (req, res) 
     ...(req.body.jiraIssue ? { jiraIssue: { key: req.body.jiraIssue.key, ...(typeof req.body.jiraIssue.url === "string" ? { url: req.body.jiraIssue.url } : {}) } } : {}),
     updatedAt: new Date().toISOString()
   };
-  dispositions.set(`${run.id}:${test.id}`, disposition);
-  await storage.saveDisposition(disposition);
+  await withStateLock(async () => {
+    await storage.saveDisposition(disposition);
+    dispositions.set(`${run.id}:${test.id}`, disposition);
+  });
   res.json(publicResultDetail(run, test));
 });
 app.post("/api/test-runs/preview", upload.single("file"), (req, res) => { if (!req.file) return res.status(400).json({ error: "Attach a JUnit XML file using the 'file' field." }); try { const sourceType = req.body.sourceType === "testng-junit" ? "testng-junit" : "manual-upload"; res.json(preview(parseJUnit(req.file.buffer.toString("utf8"), { ...req.body, sourceType, sourceName: req.file.originalname }))); } catch (error) { res.status(400).json({ error: error instanceof Error ? error.message : "Invalid JUnit XML" }); } });
-app.post("/api/test-runs", upload.single("file"), async (req, res) => { if (!req.file) return res.status(400).json({ error: "Attach a JUnit XML file using the 'file' field." }); try { const sourceType = req.body.sourceType === "testng-junit" ? "testng-junit" : "manual-upload"; const run = parseJUnit(req.file.buffer.toString("utf8"), { ...req.body, sourceType, sourceName: req.file.originalname }); if (run.quality.status === "QUARANTINED") return res.status(422).json({ error: "Report was quarantined and was not ingested.", quality: run.quality, preview: preview(run) }); const stored = await ingest(run); res.status(201).json({ run: publicRun(stored), preview: preview(stored) }); } catch (error) { res.status(400).json({ error: error instanceof Error ? error.message : "Invalid JUnit XML" }); } });
+app.post("/api/test-runs", upload.single("file"), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: "Attach a JUnit XML file using the 'file' field." });
+  const sourceType = req.body.sourceType === "testng-junit" ? "testng-junit" : "manual-upload";
+  let run: TestRun;
+  try {
+    run = parseJUnit(req.file.buffer.toString("utf8"), { ...req.body, sourceType, sourceName: req.file.originalname });
+  } catch (error) {
+    return res.status(400).json({ error: error instanceof Error ? error.message : "Invalid JUnit XML" });
+  }
+  if (run.quality.status === "QUARANTINED") return res.status(422).json({ error: "Report was quarantined and was not ingested.", quality: run.quality, preview: preview(run) });
+  try {
+    const stored = await ingest(run);
+    return res.status(201).json({ run: publicRun(stored), preview: preview(stored) });
+  } catch (error) {
+    console.error("Could not ingest test run:", error);
+    return res.status(500).json({ error: "The report could not be persisted." });
+  }
+});
 app.get("/api/failure-groups", async (req, res) => {
   await refreshPersistentState();
   const runId = text(req.query.runId).trim();
@@ -584,23 +651,21 @@ app.patch("/api/failure-groups/:id", async (req, res) => {
   const group = [...groups.values()].find(item => item.id === req.params.id);
   if (!group) return res.status(404).json({ error: "Failure group not found" });
   const classifications: Classification[] = ["product-defect", "test-defect", "environment-issue", "test-data-issue", "known-failure", "duplicate", "unknown"];
-  if (req.body.classification !== undefined) {
-    if (!classifications.includes(req.body.classification)) return res.status(400).json({ error: "Invalid classification." });
-    group.classification = req.body.classification;
-  }
-  if (req.body.notes !== undefined) {
-    if (typeof req.body.notes !== "string") return res.status(400).json({ error: "notes must be a string." });
-    group.notes = req.body.notes;
-  }
-  if (req.body.jiraIssue === null) delete group.jiraIssue;
-  else if (req.body.jiraIssue !== undefined) {
-    if (!req.body.jiraIssue || typeof req.body.jiraIssue.key !== "string") return res.status(400).json({ error: "jiraIssue.key must be a string." });
-    group.jiraIssue = { key: req.body.jiraIssue.key, ...(typeof req.body.jiraIssue.url === "string" ? { url: req.body.jiraIssue.url } : {}) };
-  }
-  await storage.saveGroup(group);
-  res.json(group);
+  if (req.body.classification !== undefined && !classifications.includes(req.body.classification)) return res.status(400).json({ error: "Invalid classification." });
+  if (req.body.notes !== undefined && typeof req.body.notes !== "string") return res.status(400).json({ error: "notes must be a string." });
+  if (req.body.jiraIssue !== undefined && req.body.jiraIssue !== null && (!req.body.jiraIssue || typeof req.body.jiraIssue.key !== "string")) return res.status(400).json({ error: "jiraIssue.key must be a string." });
+  const updatedGroup: FailureGroup = { ...group };
+  await withStateLock(async () => {
+    if (req.body.classification !== undefined) updatedGroup.classification = req.body.classification;
+    if (req.body.notes !== undefined) updatedGroup.notes = req.body.notes;
+    if (req.body.jiraIssue === null) delete updatedGroup.jiraIssue;
+    else if (req.body.jiraIssue !== undefined) updatedGroup.jiraIssue = { key: req.body.jiraIssue.key, ...(typeof req.body.jiraIssue.url === "string" ? { url: req.body.jiraIssue.url } : {}) };
+    await storage.saveGroup(updatedGroup);
+    groups.set(updatedGroup.signature, updatedGroup);
+  });
+  res.json(updatedGroup);
 });
-async function clearDemoData(): Promise<void> {
+async function clearDemoDataUnlocked(): Promise<void> {
   const demoIds = [...runs.values()].filter(run => run.provenance?.sourceType === "demo" || String(run.build || "").startsWith("demo-")).map(run => run.id);
   if (!demoIds.length) return;
   for (const id of demoIds) { runs.delete(id); await storage.deleteRun(id); }
@@ -618,6 +683,10 @@ async function clearDemoData(): Promise<void> {
       await storage.saveGroup(group);
     }
   }
+}
+
+async function clearDemoData(): Promise<void> {
+  await withStateLock(clearDemoDataUnlocked);
 }
 
 app.post("/api/demo/seed", async (req, res) => {
@@ -638,6 +707,6 @@ createStorage().then(async configuredStorage => {
   storage = configuredStorage;
   applyStoredState(await storage.load());
   app.listen(Number(process.env.PORT) || 3000, () => console.log(`Automation Failure Intelligence running on http://localhost:${Number(process.env.PORT) || 3000}`));
-}).catch(error => { console.error("Storage startup failed; using in-memory storage:", error); storage = { persistent: false, load: async () => ({ runs: [], groups: [], dispositions: [] }), saveRun: async () => undefined, saveGroup: async () => undefined, saveDisposition: async () => undefined, deleteRun: async () => undefined, deleteGroup: async () => undefined }; app.listen(Number(process.env.PORT) || 3000, () => console.log("Automation Failure Intelligence running without persistent storage.")); });
+}).catch(error => { console.error("Storage startup failed; using in-memory storage:", error); storage = { persistent: false, load: async () => ({ runs: [], groups: [], dispositions: [], retryConfigs: [] }), saveRun: async () => undefined, saveGroup: async () => undefined, saveDisposition: async () => undefined, saveRetryConfig: async () => undefined, deleteRun: async () => undefined, deleteGroup: async () => undefined }; app.listen(Number(process.env.PORT) || 3000, () => console.log("Automation Failure Intelligence running without persistent storage.")); });
 
 

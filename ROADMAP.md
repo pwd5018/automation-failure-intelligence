@@ -21,6 +21,7 @@ Automation Failure Intelligence is a private QA-triage workspace for understandi
 - Phase 6 Slice 1 adds a focused read-only testcase-detail endpoint that returns one source result with run provenance while excluding the raw XML payload.
 - TestNG retry/skip slice adds explicit TestNG identity aggregation, true-skip classification, ordered attempt history, logical totals, flaky recovery, and retry counts.
 - Phase 6 data-provider slice adds explicit metadata collapse, an ambiguity-safe needs-review fallback, observed pass/fail/error/skip counts for review groups, and demo fixtures for both routes.
+- Persistence hardening now serializes persistent state refreshes and writes, propagates database failures, bulk-writes normalized rows, stores failure-group occurrences separately from group JSONB payloads, and persists validated project retry policies.
 
 ## Phases
 
