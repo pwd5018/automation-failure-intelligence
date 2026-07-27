@@ -278,7 +278,12 @@
             display: grid;
             grid-template-columns:1fr 1fr;
             gap: 9px;
-            margin: 14px 0
+            margin: 14px 0;
+            min-width: 0
+        }
+
+        .filters > * {
+            min-width: 0
         }
 
         .list {
@@ -297,6 +302,12 @@
 
         .item:hover, .item.active {
             background: #f4f5ff
+        }
+
+        .item[role="button"]:focus {
+            background: #f4f5ff;
+            outline: 2px solid #5965db;
+            outline-offset: -2px
         }
 
         .item b {
@@ -445,6 +456,27 @@
         .detail-back {
             background: #eef0ff;
             color: #4b57c5
+        }
+
+        .detail-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 7px;
+            align-items: center
+        }
+
+        .copy-button {
+            background: #f7f8fb;
+            color: #5965db;
+            border: 1px solid #d8deea;
+            font-size: 12px;
+            padding: 8px 10px
+        }
+
+        .copy-status {
+            color: #18794e;
+            font-size: 12px;
+            min-height: 18px
         }
 
         .detail-summary {
@@ -614,6 +646,224 @@
             min-width: 82px
         }
 
+        /* Phase 7 Slice 1: responsive triage workspace foundation. */
+        body {
+            background: #f1f4f9;
+        }
+
+        .shell {
+            width: min(1480px, 100%);
+            padding-top: 22px;
+        }
+
+        .hero {
+            padding: 4px 2px 18px;
+            margin-bottom: 0;
+        }
+
+        .hero h1 {
+            letter-spacing: -.03em;
+        }
+
+        .hero p {
+            margin-bottom: 0;
+        }
+
+        .hero-actions {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+            gap: 8px;
+        }
+
+        .ingestion-drawer {
+            position: relative;
+            display: grid;
+            grid-template-columns: minmax(220px, 1.4fr) minmax(160px, .8fr) minmax(160px, .8fr) auto auto auto;
+            align-items: end;
+            padding: 14px 16px;
+            margin: 0 0 14px auto;
+            max-width: 980px;
+            border-radius: 14px;
+        }
+
+        .ingestion-drawer[hidden] {
+            display: none;
+        }
+
+        .ingestion-drawer .wide {
+            grid-column: 1 / -1;
+            margin-bottom: -3px;
+            font-size: 14px;
+            color: #5965db;
+            text-transform: uppercase;
+            letter-spacing: .08em;
+        }
+
+        .ingestion-close {
+            background: transparent;
+            color: #657087;
+            border: 1px solid #d7ddea;
+        }
+
+        .summary {
+            margin: 14px 0;
+            padding: 16px;
+        }
+
+        .summary-metrics {
+            grid-template-columns: repeat(8, minmax(76px, 1fr));
+            gap: 7px;
+            margin-top: 14px;
+        }
+
+        .metric {
+            padding: 9px 10px;
+        }
+
+        .metric b {
+            font-size: 19px;
+        }
+
+        .summary-definitions {
+            display: none;
+        }
+
+        .run-grid {
+            grid-template-columns: minmax(220px, .72fr) minmax(400px, 1.5fr) minmax(330px, 1fr);
+            gap: 12px;
+            align-items: start;
+        }
+
+        .run-grid > .card {
+            min-width: 0;
+            min-height: 560px;
+        }
+
+        .run-grid > .card:first-child {
+            position: sticky;
+            top: 12px;
+        }
+
+        .run-grid > .card:nth-child(2) {
+            overflow: hidden;
+        }
+
+        .run-grid > .card:nth-child(2) h2 {
+            display: inline-block;
+            margin-right: 12px;
+        }
+
+        .run-grid > .card:nth-child(2) > .muted {
+            margin-top: 0;
+        }
+
+        .run-grid > .card:nth-child(2) .list {
+            max-height: 360px;
+            overflow: auto;
+            border-top: 1px solid #edf0f5;
+        }
+
+        .run-grid > .detail {
+            margin-top: 0;
+            position: sticky;
+            top: 12px;
+            max-height: calc(100vh - 24px);
+            overflow: auto;
+        }
+
+        .run-sidebar-title,
+        .workspace-title,
+        .inspector-title {
+            color: #7b8699;
+            font-size: 11px;
+            font-weight: 800;
+            letter-spacing: .1em;
+            text-transform: uppercase;
+        }
+
+        .run-sidebar-title {
+            margin-bottom: 10px;
+        }
+
+        .workspace-title {
+            display: block;
+            margin-bottom: 6px;
+        }
+
+        .inspector-title {
+            margin-bottom: 10px;
+        }
+
+        .center-tabs {
+            display: flex;
+            gap: 4px;
+            margin: 0 -4px 18px;
+            border-bottom: 1px solid #e6eaf2;
+        }
+
+        .center-tab {
+            position: relative;
+            border-radius: 8px 8px 0 0;
+            background: transparent;
+            color: #7b8699;
+            padding: 9px 12px 11px;
+            font-size: 13px;
+        }
+
+        .center-tab:hover,
+        .center-tab[aria-selected="true"] {
+            background: #f4f5ff;
+            color: #4b57c5;
+        }
+
+        .center-tab[aria-selected="true"]::after {
+            position: absolute;
+            right: 10px;
+            bottom: -1px;
+            left: 10px;
+            height: 2px;
+            border-radius: 999px;
+            background: #5965db;
+            content: "";
+        }
+
+        .triage-panel[hidden] {
+            display: none;
+        }
+
+        .run-grid > .card:nth-child(2) .filters {
+            margin-top: 8px;
+        }
+
+        .test-results {
+            max-height: 560px;
+            overflow: auto;
+            padding-right: 2px;
+        }
+
+        .test-row {
+            border-left: 3px solid #cfd4ff;
+            box-shadow: 0 2px 8px #25345b06;
+        }
+
+        .test-row:has(.test-history .failed),
+        .test-row:has(.test-history .error) {
+            border-left-color: #e57373;
+        }
+
+        .test-row:has(.test-history .passed) {
+            border-left-color: #52b788;
+        }
+
+        .test-row:has(.test-history .skipped) {
+            border-left-color: #e5b84b;
+        }
+
+        .detail {
+            border-color: #d7ddea;
+        }
+
         @media (max-width: 900px) {
             .summary-metrics {
                 grid-template-columns:repeat(3, 1fr)
@@ -628,12 +878,24 @@
                 flex-direction: column
             }
 
-            .hero .field {
+            .hero .field,
+            .hero-actions {
                 justify-content: flex-start
             }
 
             .run-grid {
                 grid-template-columns:1fr
+            }
+
+            .run-grid > .card:first-child,
+            .run-grid > .detail {
+                position: static;
+                max-height: none;
+            }
+
+            .run-grid > .card:nth-child(2) .list,
+            .test-results {
+                max-height: none;
             }
         }
 
@@ -642,8 +904,12 @@
                 padding: 20px 12px 36px
             }
 
-            .controls {
+            .ingestion-drawer {
                 grid-template-columns:1fr
+            }
+
+            .ingestion-drawer .wide {
+                grid-column: auto;
             }
 
             .summary-top {
@@ -661,6 +927,10 @@
             .hero .field, .hero button, .developer-link {
                 width: 100%;
                 max-width: none
+            }
+
+            .hero-actions {
+                width: 100%;
             }
 
             .card {
@@ -699,19 +969,21 @@
 </head>
 <body>
 <main class="shell">
-    <section class="hero">
+    <header class="hero">
         <div>
             <div class="eyebrow">Automation Failure Intelligence</div>
             <h1>Truthful results from noisy test runs.</h1>
             <p>Store one report at a time and investigate every result exactly as reported.</p></div>
-        <div class="field">
+        <div class="hero-actions">
+            <button id="ingestionToggle" type="button" aria-expanded="false" aria-controls="ingestionDrawer">Ingest report</button>
             <button id="demo">Load demo report</button>
             <a class="developer-link" href="/developer.html" target="_blank" rel="noopener">Developer checks</a></div>
-    </section>
-    <section class="card controls"><h2 class="wide">Load a TestNG JUnit report</h2><input id="file" type="file" accept=".xml"><input
+    </header>
+    <section id="ingestionDrawer" class="card ingestion-drawer" aria-labelledby="ingestionTitle" hidden><h2 id="ingestionTitle" class="wide">Load a TestNG JUnit report</h2><input id="file" type="file" accept=".xml"><input
             id="build" placeholder="Build number"><input id="environment" placeholder="Environment">
         <button id="preview">Preview report</button>
         <button id="upload">Ingest TestNG JUnit</button>
+        <button id="ingestionClose" class="ingestion-close" type="button">Close</button>
     </section>
     <section class="card summary">
         <div class="summary-top">
@@ -743,7 +1015,7 @@
         <div id="summaryNote"></div>
     </section>
     <section class="run-grid">
-        <div class="card"><h2>Run workspace</h2>
+        <aside class="card" aria-label="Run navigation"><div class="run-sidebar-title">Run navigation</div><h2>Run workspace</h2>
             <div id="storageStatus" class="storage-pill">Checking database...</div>
             <select id="runHistory" class="run-select">
                 <option value="">No ingested reports yet</option>
@@ -756,8 +1028,16 @@
                 <option value="SKIPPED">Runs containing skipped results</option>
             </select><input id="runSearch" placeholder="Search stored runs" aria-label="Search stored runs"></div>
             <div id="runInfo"><p>Report metadata and test results will appear here.</p></div>
-            <h3>Test results</h3>
-            <p class="muted">Each row is one logical test. TestNG retry attempts are retained inside the result history.</p>
+            <div class="muted">Select a stored report to inspect.</div>
+        </aside>
+        <section class="card" aria-label="Test triage results"><div class="workspace-title">Selected run</div><h2>Test triage</h2>
+            <nav class="center-tabs" aria-label="Triage views" role="tablist">
+                <button id="testTab" class="center-tab" type="button" role="tab" aria-selected="true" aria-controls="testPanel">Test results</button>
+                <button id="groupTab" class="center-tab" type="button" role="tab" aria-selected="false" aria-controls="groupPanel">Failure groups</button>
+            </nav>
+            <div id="testPanel" class="triage-panel" role="tabpanel" aria-labelledby="testTab">
+                <h3>Test results</h3>
+                <p class="muted">Each row is one logical test. TestNG retry attempts are retained inside the result history.</p>
             <div class="filters"><select id="testStatus" aria-label="Filter test results">
                 <option value="">All test results</option>
                 <option value="passed">Passed</option>
@@ -768,16 +1048,18 @@
             </select><input id="testSearch" placeholder="Search tests, classes, or parameters"
                             aria-label="Search test results"></div>
             <div id="testResults" class="test-results"><p class="muted">No test results loaded yet.</p></div>
-        </div>
-        <div class="card"><h2>Failure groups</h2>
-            <p class="muted">Failures and errors are grouped from the reported results.</p>
-            <div id="list" class="list"><p style="padding:20px">No failure groups yet.</p></div>
-        </div>
+            </div>
+            <div id="groupPanel" class="triage-panel" role="tabpanel" aria-labelledby="groupTab" hidden>
+                <div class="workspace-title">Confirmed evidence</div><h2>Failure groups</h2>
+                <p class="muted">Failures and errors are grouped from the reported results.</p>
+                <div id="list" class="list"><p style="padding:20px">No failure groups yet.</p></div>
+            </div>
+        </section>
+        <aside id="detail" class="card detail" aria-label="Selected result inspector" aria-live="polite"><div class="inspector-title">Inspector</div><p>Select a failure group to inspect its evidence.</p></aside>
     </section>
-    <section id="detail" class="card detail"><p>Select a failure group to inspect its evidence.</p></section>
 </main>
 <script>
-    let groups = [], currentRun = null, selected = null, activeSuggestions = [];
+    let groups = [], currentRun = null, selected = null, activeSuggestions = [], activeCopyPayloads = {};
     const $ = id => document.getElementById(id);
     const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({
         '&': '&amp;',
@@ -787,6 +1069,20 @@
         "'": '&#39;'
     }[c]));
     const normalize = value => String(value ?? '').toLowerCase().replace(/\s+/g, ' ').trim();
+    function setCenterTab(tabName) {
+        const showTests = tabName === 'tests';
+        $('testTab').setAttribute('aria-selected', String(showTests));
+        $('groupTab').setAttribute('aria-selected', String(!showTests));
+        $('testPanel').hidden = !showTests;
+        $('groupPanel').hidden = showTests;
+    }
+
+    function setIngestionOpen(open) {
+        $('ingestionDrawer').hidden = !open;
+        $('ingestionToggle').setAttribute('aria-expanded', String(open));
+        if (open) $('file').focus();
+    }
+
     const groupFilters = document.createElement('div');
     groupFilters.className = 'filters';
     groupFilters.innerHTML = '<select id="groupOutcome" aria-label="Filter failure groups by outcome"><option value="">All outcomes</option><option value="FAILED">Failed</option><option value="ERROR">Error</option></select><input id="groupSearch" placeholder="Search failure groups" aria-label="Search failure groups">';
@@ -870,13 +1166,14 @@
             const occurrences = group.selectedRunOccurrences ?? group.occurrences;
             const tests = group.selectedRunTests ?? group.tests ?? [];
             const runs = group.selectedRunRuns ?? group.runs ?? [];
-            return '<div class="item ' + (group.id === selected ? 'active' : '') + '" onclick="pick(\'' + group.id + '\')"><b>' + esc(group.summary) + '</b><div class="muted">' + occurrences + ' matching tests in this run - ' + runs.length + ' run(s): ' + tests.map(esc).join(', ') + '</div><span class="badge ' + group.classification + '">' + esc((group.outcomes || []).join(' / ') || 'FAILURE') + '</span> <span class="badge ' + group.classification + '">' + esc(group.classification) + '</span></div>'
+            return '<div class="item ' + (group.id === selected ? 'active' : '') + '" role="button" tabindex="0" aria-label="Open failure group ' + esc(group.summary) + '" onclick="pick(\'' + group.id + '\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();pick(\'' + group.id + '\')}\"><b>' + esc(group.summary) + '</b><div class="muted">' + occurrences + ' matching tests in this run - ' + runs.length + ' run(s): ' + tests.map(esc).join(', ') + '</div><span class="badge ' + group.classification + '">' + esc((group.outcomes || []).join(' / ') || 'FAILURE') + '</span> <span class="badge ' + group.classification + '">' + esc(group.classification) + '</span></div>'
         }).join('') : '<p style="padding:20px">No shared failure groups in this run. Review failed and error results above.</p>';
         if (selected) renderDetail(groups.find(group => group.id === selected));
     }
 
     function pick(id) {
         selected = id;
+        setCenterTab('groups');
         renderDetail(groups.find(group => group.id === id));
         refreshGroups();
     }
@@ -905,6 +1202,10 @@
 
     function renderTestDetail(payload) {
         const result = payload.result;
+        activeCopyPayloads = {
+            result: [result.name, result.className || result.suite || '', result.suite || '', result.parameters || '', detailStatus(result)].filter(Boolean).join(' | '),
+            'result-evidence': (result.attempts || []).map((attempt, index) => 'Attempt ' + (attempt.attemptNumber || index + 1) + ' [' + String(attempt.rawStatus || attempt.status || 'UNKNOWN').toUpperCase() + ']\n' + (attempt.message || '') + (attempt.stackTrace ? '\n' + attempt.stackTrace : '')).join('\n\n')
+        };
         const siblings = (currentRun?.logicalTests || []).filter(test => detailGroupKey(test) === detailGroupKey(result));
         const iterations = siblings.length ? siblings : [result];
         const counts = {
@@ -921,7 +1222,7 @@
             const attemptsMarkup = attempts.map((attempt, attemptIndex) => '<div class="attempt-detail-row"><b>Attempt ' + (attempt.attemptNumber || attemptIndex + 1) + '</b><span>' + esc(String(attempt.rawStatus || attempt.status || 'UNKNOWN').toUpperCase()) + '</span><span>' + esc(attempt.message || attempt.stackTrace || 'No additional evidence reported.') + '</span></div>').join('');
             return '<article class="iteration-card"><div class="iteration-heading"><div><b>Iteration ' + (index + 1) + '</b><div class="muted">' + esc(test.parameters || 'No parameter signature reported') + '</div></div><span class="status ' + esc(String(test.finalStatus || 'unknown')) + '">' + esc(detailStatus(test)) + '</span></div>' + (test.needsReview ? '<div class="notice"><b>Needs review:</b> ' + esc(test.reviewReason || 'The source did not provide enough metadata to classify this sequence.') + '<br>Observed: ' + test.observed.passed + ' passed, ' + test.observed.failed + ' failed, ' + test.observed.errors + ' errors, ' + test.observed.skipped + ' skipped.</div>' : '') + '<div class="attempt-detail">' + attemptsMarkup + '</div></article>';
         }).join('');
-        $('detail').innerHTML = '<div class="detail-toolbar"><div><h2>' + esc(result.name) + '</h2><div class="muted">' + esc(result.className || result.suite || '') + ' - ' + esc(result.suite || '') + '</div></div><button class="detail-back" onclick="closeTestDetail()">Back to results</button></div><p class="muted">Result details from ' + esc(payload.run.build || payload.run.id) + ' · ' + esc(payload.run.environment || 'default') + '</p><div class="detail-summary"><div class="detail-stat"><b>' + iterations.length + '</b><span>Iterations</span></div><div class="detail-stat"><b>' + counts.passed + '</b><span>Passed</span></div><div class="detail-stat"><b>' + counts.failed + '</b><span>Failed</span></div><div class="detail-stat"><b>' + counts.errors + '</b><span>Errors</span></div><div class="detail-stat"><b>' + counts.skipped + '</b><span>Skipped</span></div><div class="detail-stat"><b>' + counts.retries + '</b><span>Retries</span></div><div class="detail-stat"><b>' + counts.flaky + '</b><span>Flaky</span></div><div class="detail-stat"><b>' + counts.review + '</b><span>Needs review</span></div></div>' + dispositionEditor(payload) + '<h3>Iterations and attempts</h3><div class="iteration-list">' + iterationMarkup + '</div>';
+        $('detail').innerHTML = '<div class="detail-toolbar"><div><div class="inspector-title">Result inspector</div><h2>' + esc(result.name) + '</h2><div class="muted">' + esc(result.className || result.suite || '') + ' - ' + esc(result.suite || '') + '</div></div><div class="detail-actions"><button class="copy-button" onclick="copyInspectorText(\'result\', this)">Copy summary</button><button class="copy-button" onclick="copyInspectorText(\'result-evidence\', this)">Copy evidence</button><button class="detail-back" onclick="closeTestDetail()">Back to results</button></div></div><div class="copy-status" aria-live="polite"></div><p class="muted">Result details from ' + esc(payload.run.build || payload.run.id) + ' · ' + esc(payload.run.environment || 'default') + '</p><div class="detail-summary"><div class="detail-stat"><b>' + iterations.length + '</b><span>Iterations</span></div><div class="detail-stat"><b>' + counts.passed + '</b><span>Passed</span></div><div class="detail-stat"><b>' + counts.failed + '</b><span>Failed</span></div><div class="detail-stat"><b>' + counts.errors + '</b><span>Errors</span></div><div class="detail-stat"><b>' + counts.skipped + '</b><span>Skipped</span></div><div class="detail-stat"><b>' + counts.retries + '</b><span>Retries</span></div><div class="detail-stat"><b>' + counts.flaky + '</b><span>Flaky</span></div><div class="detail-stat"><b>' + counts.review + '</b><span>Needs review</span></div></div>' + dispositionEditor(payload) + '<h3>Iterations and attempts</h3><div class="iteration-list">' + iterationMarkup + '</div>';
         if (resultCanBeClassified(result) && $('resultClassification')) $('resultClassification').value = payload.disposition?.classification || 'unknown';
         $('detail').scrollIntoView({behavior: 'smooth', block: 'start'});
     }
@@ -932,6 +1233,7 @@
 
     async function openTestDetail(runId, testId) {
         selected = null;
+        setCenterTab('tests');
         const local = (currentRun?.logicalTests || []).find(test => test.id === testId);
         if (!runId) return local && renderTestDetail({run: currentRun, result: local});
         const response = await fetch('/api/test-runs/' + runId + '/results/' + testId);
@@ -945,6 +1247,26 @@
         $('resultClassification').value = suggestion.classification;
         $('resultJira').value = suggestion.jiraIssue?.key || '';
         $('resultNotes').value = suggestion.notes || '';
+    }
+
+    async function copyInspectorText(key, button) {
+        const text = activeCopyPayloads[key] || '';
+        if (!text) return;
+        try {
+            await navigator.clipboard.writeText(text);
+        } catch {
+            const fallback = document.createElement('textarea');
+            fallback.value = text;
+            document.body.appendChild(fallback);
+            fallback.select();
+            document.execCommand('copy');
+            fallback.remove();
+        }
+        const status = $('detail').querySelector('.copy-status');
+        if (status) status.textContent = 'Copied to clipboard.';
+        const original = button.textContent;
+        button.textContent = 'Copied';
+        setTimeout(() => { button.textContent = original; }, 1400);
     }
 
     async function saveResultDisposition(runId, testId) {
@@ -967,13 +1289,18 @@
 
     function renderDetail(group) {
         if (!group) {
+            activeCopyPayloads = {};
             $('detail').innerHTML = '<p>Select a failure group to inspect its evidence.</p>';
             return;
         }
         const evidence = (group.evidence || []).map(item => '<button class="evidence-link" onclick="openEvidence(\'' + item.runId + '\',\'' + item.testId + '\')">' + esc(item.outcome) + ' - ' + esc(item.testName) + ' - ' + esc(item.build) + '</button>').join('');
         const occurrences = group.selectedRunOccurrences ?? group.occurrences;
         const tests = group.selectedRunTests ?? group.tests ?? [];
-        $('detail').innerHTML = '<h2>' + esc(group.summary) + '</h2><div class="muted">' + esc(occurrences) + ' occurrence(s) in this run - ' + esc(group.occurrences) + ' overall occurrence(s) - ' + esc((group.outcomes || []).join(' / ') || 'FAILURE') + ' - First seen ' + esc(group.firstSeen) + ' - Last seen ' + esc(group.lastSeen) + '</div><div class="row"><select id="classification"><option value="unknown">Unknown</option><option value="product-defect">Product defect</option><option value="test-defect">Test defect</option><option value="environment-issue">Environment issue</option><option value="test-data-issue">Test data issue</option><option value="known-failure">Known failure</option><option value="duplicate">Duplicate</option></select><button onclick="saveGroup(\'' + group.id + '\')">Save</button></div><input id="jira" placeholder="Jira issue key, e.g. QA-123" value="' + esc(group.jiraIssue?.key || '') + '"><textarea id="notes" placeholder="Investigation notes">' + esc(group.notes) + '</textarea><h3>Evidence by reported result</h3><div class="evidence-list">' + (evidence || '<p class="muted">Exact links are not available for this older stored group.</p>') + '</div><div class="muted">Tests in this run: ' + tests.map(esc).join(', ') + '<br>Suites: ' + (group.suites || []).map(esc).join(', ') + '<br>Environments: ' + (group.environments || []).map(esc).join(', ') + '</div><pre>' + esc(group.stackTrace) + '</pre>';
+        activeCopyPayloads = {
+            group: [group.summary, (group.outcomes || []).join(' / ') || 'FAILURE', occurrences + ' occurrence(s) in this run', group.firstSeen && 'First seen ' + group.firstSeen, group.lastSeen && 'Last seen ' + group.lastSeen].filter(Boolean).join(' | '),
+            'group-evidence': group.stackTrace || ''
+        };
+        $('detail').innerHTML = '<div class="detail-toolbar"><div><div class="inspector-title">Failure inspector</div><h2>' + esc(group.summary) + '</h2></div><div class="detail-actions"><button class="copy-button" onclick="copyInspectorText(\'group\', this)">Copy summary</button><button class="copy-button" onclick="copyInspectorText(\'group-evidence\', this)">Copy stack trace</button></div></div><div class="copy-status" aria-live="polite"></div><div class="muted">' + esc(occurrences) + ' occurrence(s) in this run - ' + esc(group.occurrences) + ' overall occurrence(s) - ' + esc((group.outcomes || []).join(' / ') || 'FAILURE') + ' - First seen ' + esc(group.firstSeen) + ' - Last seen ' + esc(group.lastSeen) + '</div><div class="row"><select id="classification"><option value="unknown">Unknown</option><option value="product-defect">Product defect</option><option value="test-defect">Test defect</option><option value="environment-issue">Environment issue</option><option value="test-data-issue">Test data issue</option><option value="known-failure">Known failure</option><option value="duplicate">Duplicate</option></select><button onclick="saveGroup(\'' + group.id + '\')">Save</button></div><input id="jira" placeholder="Jira issue key, e.g. QA-123" value="' + esc(group.jiraIssue?.key || '') + '"><textarea id="notes" placeholder="Investigation notes">' + esc(group.notes) + '</textarea><h3>Evidence by reported result</h3><div class="evidence-list">' + (evidence || '<p class="muted">Exact links are not available for this older stored group.</p>') + '</div><div class="muted">Tests in this run: ' + tests.map(esc).join(', ') + '<br>Suites: ' + (group.suites || []).map(esc).join(', ') + '<br>Environments: ' + (group.environments || []).map(esc).join(', ') + '</div><pre>' + esc(group.stackTrace) + '</pre>';
         $('classification').value = group.classification;
     }
 
@@ -1048,7 +1375,12 @@
     $('preview').onclick = preview;
     $('upload').onclick = upload;
     $('demo').onclick = demo;
+    $('ingestionToggle').onclick = () => setIngestionOpen($('ingestionDrawer').hidden);
+    $('ingestionClose').onclick = () => setIngestionOpen(false);
+    $('testTab').onclick = () => setCenterTab('tests');
+    $('groupTab').onclick = () => setCenterTab('groups');
     $('needsReviewMetric').onclick = () => {
+        setCenterTab('tests');
         $('testStatus').value = 'needs-review';
         renderTests();
         document.getElementById('testResults')?.scrollIntoView({behavior: 'smooth', block: 'start'});
