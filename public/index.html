@@ -855,6 +855,7 @@
         const all = await r.json();
         $('runHistory').innerHTML = all.length ? all.map(run => '<option value="' + run.id + '">' + esc(run.build || run.id) + ' - ' + esc(run.resultStatus) + ' - ' + esc(run.ingestedAt || '') + '</option>').join('') : '<option value="">No matching stored reports</option>';
         if (currentRun && all.some(run => run.id === currentRun.id)) $('runHistory').value = currentRun.id;
+        return all;
     }
 
     async function refreshGroups() {
@@ -1035,6 +1036,8 @@
         if (!r.ok) return alert((await r.json()).error);
         const data = await r.json();
         setRun(data.run);
+        await refreshRuns();
+        await refreshGroups();
     }
 
     const originalSetRun = setRun;
@@ -1067,8 +1070,11 @@
 
     async function boot() {
         await loadHealth();
-        await demo();
-        await refreshRuns();
+        const all = await refreshRuns();
+        if (all.length) {
+            const response = await fetch('/api/test-runs/' + all[0].id);
+            if (response.ok) setRun(await response.json());
+        }
         await refreshGroups();
     }
 

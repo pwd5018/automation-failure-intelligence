@@ -35,7 +35,7 @@ The normalized schema is intentionally additive. New writes populate these colum
 `src/reportQuality.ts` classifies parsed reports as `ACCEPTED`, `ACCEPTED_WITH_WARNINGS`, or `QUARANTINED`. It warns on repeated identities and declared-count mismatches, while missing testcase names and empty reports are quarantined. Source records remain literal; only explicit TestNG input with retry metadata enables retry/data-provider aggregation. Preview exposes the quality result; ingestion returns HTTP 422 for quarantined reports before persistence or failure-group creation.
 
 
-The separate `public/developer.html` workspace runs the Phase 5 API checks without cluttering the product dashboard. It is opened from the main dashboard in a new tab and is intended to grow with future diagnostics.
+The separate `public/developer.html` workspace runs the Phase 5 API checks without cluttering the product dashboard. It is opened from the main dashboard in a new tab and is intended to grow with future diagnostics. Dashboard startup reads persisted runs; demo reset is explicit through `POST /api/demo/seed` and the Load demo runs control.
 
 Phase 6 Slice 1 provides `GET /api/test-runs/:runId/results/:testId` for one reported testcase, keeping the detail contract separate from the lightweight run dashboard. The result-detail workspace now opens from test rows and failure evidence, groups sibling logical results as data-provider iterations, and renders each attempt with its source status and evidence. The remaining Phase 6 gate is mobile/deployment validation. Phase 7 will add run-scoped manual ambiguity resolutions; Phase 8 is reserved for external ingestion and collaboration.
 
