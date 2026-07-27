@@ -614,6 +614,167 @@
             min-width: 82px
         }
 
+        /* Phase 7 Slice 1: responsive triage workspace foundation. */
+        body {
+            background: #f1f4f9;
+        }
+
+        .shell {
+            width: min(1480px, 100%);
+            padding-top: 22px;
+        }
+
+        .hero {
+            padding: 4px 2px 18px;
+            margin-bottom: 0;
+        }
+
+        .hero h1 {
+            letter-spacing: -.03em;
+        }
+
+        .hero p {
+            margin-bottom: 0;
+        }
+
+        .controls {
+            grid-template-columns: minmax(220px, 1.4fr) minmax(160px, .8fr) minmax(160px, .8fr) auto auto;
+            align-items: end;
+            padding: 14px 16px;
+            margin-bottom: 14px;
+            border-radius: 14px;
+        }
+
+        .controls .wide {
+            grid-column: 1 / -1;
+            margin-bottom: -3px;
+            font-size: 14px;
+            color: #5965db;
+            text-transform: uppercase;
+            letter-spacing: .08em;
+        }
+
+        .summary {
+            margin: 14px 0;
+            padding: 16px;
+        }
+
+        .summary-metrics {
+            grid-template-columns: repeat(8, minmax(76px, 1fr));
+            gap: 7px;
+            margin-top: 14px;
+        }
+
+        .metric {
+            padding: 9px 10px;
+        }
+
+        .metric b {
+            font-size: 19px;
+        }
+
+        .summary-definitions {
+            display: none;
+        }
+
+        .run-grid {
+            grid-template-columns: minmax(220px, .72fr) minmax(400px, 1.5fr) minmax(330px, 1fr);
+            gap: 12px;
+            align-items: start;
+        }
+
+        .run-grid > .card {
+            min-width: 0;
+            min-height: 560px;
+        }
+
+        .run-grid > .card:first-child {
+            position: sticky;
+            top: 12px;
+        }
+
+        .run-grid > .card:nth-child(2) {
+            overflow: hidden;
+        }
+
+        .run-grid > .card:nth-child(2) h2 {
+            display: inline-block;
+            margin-right: 12px;
+        }
+
+        .run-grid > .card:nth-child(2) > .muted {
+            margin-top: 0;
+        }
+
+        .run-grid > .card:nth-child(2) .list {
+            max-height: 360px;
+            overflow: auto;
+            border-top: 1px solid #edf0f5;
+        }
+
+        .run-grid > .detail {
+            margin-top: 0;
+            position: sticky;
+            top: 12px;
+            max-height: calc(100vh - 24px);
+            overflow: auto;
+        }
+
+        .run-sidebar-title,
+        .workspace-title,
+        .inspector-title {
+            color: #7b8699;
+            font-size: 11px;
+            font-weight: 800;
+            letter-spacing: .1em;
+            text-transform: uppercase;
+        }
+
+        .run-sidebar-title {
+            margin-bottom: 10px;
+        }
+
+        .workspace-title {
+            display: inline-block;
+            margin-bottom: 2px;
+        }
+
+        .inspector-title {
+            margin-bottom: 10px;
+        }
+
+        .run-grid > .card:nth-child(2) .filters {
+            margin-top: 8px;
+        }
+
+        .test-results {
+            max-height: 560px;
+            overflow: auto;
+            padding-right: 2px;
+        }
+
+        .test-row {
+            border-left: 3px solid #cfd4ff;
+            box-shadow: 0 2px 8px #25345b06;
+        }
+
+        .test-row:has(.test-history .failed),
+        .test-row:has(.test-history .error) {
+            border-left-color: #e57373;
+        }
+
+        .test-row:has(.test-history .passed) {
+            border-left-color: #52b788;
+        }
+
+        .test-row:has(.test-history .skipped) {
+            border-left-color: #e5b84b;
+        }
+
+        .detail {
+            border-color: #d7ddea;
+        }
+
         @media (max-width: 900px) {
             .summary-metrics {
                 grid-template-columns:repeat(3, 1fr)
@@ -634,6 +795,17 @@
 
             .run-grid {
                 grid-template-columns:1fr
+            }
+
+            .run-grid > .card:first-child,
+            .run-grid > .detail {
+                position: static;
+                max-height: none;
+            }
+
+            .run-grid > .card:nth-child(2) .list,
+            .test-results {
+                max-height: none;
             }
         }
 
@@ -699,7 +871,7 @@
 </head>
 <body>
 <main class="shell">
-    <section class="hero">
+    <header class="hero">
         <div>
             <div class="eyebrow">Automation Failure Intelligence</div>
             <h1>Truthful results from noisy test runs.</h1>
@@ -707,7 +879,7 @@
         <div class="field">
             <button id="demo">Load demo report</button>
             <a class="developer-link" href="/developer.html" target="_blank" rel="noopener">Developer checks</a></div>
-    </section>
+    </header>
     <section class="card controls"><h2 class="wide">Load a TestNG JUnit report</h2><input id="file" type="file" accept=".xml"><input
             id="build" placeholder="Build number"><input id="environment" placeholder="Environment">
         <button id="preview">Preview report</button>
@@ -743,7 +915,7 @@
         <div id="summaryNote"></div>
     </section>
     <section class="run-grid">
-        <div class="card"><h2>Run workspace</h2>
+        <aside class="card" aria-label="Run navigation"><div class="run-sidebar-title">Run navigation</div><h2>Run workspace</h2>
             <div id="storageStatus" class="storage-pill">Checking database...</div>
             <select id="runHistory" class="run-select">
                 <option value="">No ingested reports yet</option>
@@ -756,6 +928,9 @@
                 <option value="SKIPPED">Runs containing skipped results</option>
             </select><input id="runSearch" placeholder="Search stored runs" aria-label="Search stored runs"></div>
             <div id="runInfo"><p>Report metadata and test results will appear here.</p></div>
+            <div class="muted">Select a stored report to inspect.</div>
+        </aside>
+        <section class="card" aria-label="Test triage results"><div class="workspace-title">Selected run</div><h2>Test triage</h2>
             <h3>Test results</h3>
             <p class="muted">Each row is one logical test. TestNG retry attempts are retained inside the result history.</p>
             <div class="filters"><select id="testStatus" aria-label="Filter test results">
@@ -768,13 +943,12 @@
             </select><input id="testSearch" placeholder="Search tests, classes, or parameters"
                             aria-label="Search test results"></div>
             <div id="testResults" class="test-results"><p class="muted">No test results loaded yet.</p></div>
-        </div>
-        <div class="card"><h2>Failure groups</h2>
+            <div class="workspace-title" style="margin-top:24px">Confirmed evidence</div><h2>Failure groups</h2>
             <p class="muted">Failures and errors are grouped from the reported results.</p>
             <div id="list" class="list"><p style="padding:20px">No failure groups yet.</p></div>
-        </div>
+        </section>
+        <aside id="detail" class="card detail" aria-label="Selected result inspector"><div class="inspector-title">Inspector</div><p>Select a failure group to inspect its evidence.</p></aside>
     </section>
-    <section id="detail" class="card detail"><p>Select a failure group to inspect its evidence.</p></section>
 </main>
 <script>
     let groups = [], currentRun = null, selected = null, activeSuggestions = [];

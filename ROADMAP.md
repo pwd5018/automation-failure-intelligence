@@ -82,7 +82,7 @@ Before accepting externally ingested reports, establish a clean and trustworthy 
 
 External CI/webhook ingestion remains a later phase and begins only after the Phase 5 quality gate and Phase 6 investigation-workspace gate pass.
 
-### Phase 6 - Test detail investigation workspace (in progress)
+### Phase 6 - Test detail investigation workspace (implemented; deployment gate pending)
 
 Add a focused result-detail surface for investigating one reported testcase at a time:
 
@@ -90,12 +90,30 @@ Add a focused result-detail surface for investigating one reported testcase at a
 - Data-provider slice (implemented): metadata-rich repeated identities collapse into iterations/attempts; metadata-poor or ambiguous repeated identities remain grouped as `NEEDS REVIEW` with raw records and observed counts.
 - Result-detail slice (implemented): result rows and failure evidence open a focused detail workspace with iteration totals, outcome counts, and per-attempt evidence.
 - Result-classification slice (implemented): individual failed/review results accept persisted dispositions, Jira references, and notes; matching prior decisions are offered as confirmation suggestions on later runs.
-- Phase 7 is now reserved for user-resolved ambiguity overlays; external ingestion and collaboration move to Phase 8.
-- Remaining gate: complete mobile/Vercel validation for the detail workspace.
+- Phase 7 is now reserved for the UI redesign and triage workspace; manual ambiguity resolution moves to Phase 8 and external ingestion/collaboration moves to Phase 9.
+- Remaining gate: complete the mobile/Vercel validation record for the detail workspace before claiming production closeout.
 - Mobile-friendly navigation from the run workspace and failure evidence.
 - Preserve the exact source contract and keep the main dashboard lightweight.
 
-### Phase 7 - Manual ambiguity resolution (next)
+### Phase 7 - UI redesign and triage workspace (next)
+
+Transform the existing dashboard into a responsive investigation workspace without changing parser semantics, source-result identity, or persistence contracts.
+
+First implementation slice:
+
+- Add a workspace shell with a header, run sidebar, results workspace, and persistent desktop inspector surface.
+- Establish the visual foundation for dense triage: compact summary metrics, clearer panel hierarchy, status accents, focus states, and bounded scrolling.
+- Preserve the existing result, failure-group, upload, storage-status, and detail element IDs while the layout is being migrated.
+- Keep the mobile layout stacked and usable; the inspector will become an overlay in a later slice.
+
+Planned follow-up slices:
+
+- Add center-panel tabs for Test Results and Failure Groups.
+- Move ingestion into a responsive drawer.
+- Polish inspector interactions, copy controls, and keyboard navigation.
+- Complete desktop, phone-sized, accessibility, and Vercel validation.
+
+### Phase 8 - Manual ambiguity resolution (deferred)
 
 Give users an explicit, run-scoped way to resolve metadata-poor TestNG groups without changing the source XML or global parser rules:
 
@@ -106,7 +124,7 @@ Give users an explicit, run-scoped way to resolve metadata-poor TestNG groups wi
 - Persist the resolution for that specific run and allow it to be reopened, edited, or reset.
 - Keep unresolved records visible as `NEEDS REVIEW` and retain every raw record for auditability.
 
-### Phase 8 - External ingestion and collaboration (future)
+### Phase 9 - External ingestion and collaboration (future)
 
 - CI/webhook ingestion.
 - Authentication.
