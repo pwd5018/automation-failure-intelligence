@@ -748,6 +748,43 @@
             margin-bottom: 10px;
         }
 
+        .center-tabs {
+            display: flex;
+            gap: 4px;
+            margin: 0 -4px 18px;
+            border-bottom: 1px solid #e6eaf2;
+        }
+
+        .center-tab {
+            position: relative;
+            border-radius: 8px 8px 0 0;
+            background: transparent;
+            color: #7b8699;
+            padding: 9px 12px 11px;
+            font-size: 13px;
+        }
+
+        .center-tab:hover,
+        .center-tab[aria-selected="true"] {
+            background: #f4f5ff;
+            color: #4b57c5;
+        }
+
+        .center-tab[aria-selected="true"]::after {
+            position: absolute;
+            right: 10px;
+            bottom: -1px;
+            left: 10px;
+            height: 2px;
+            border-radius: 999px;
+            background: #5965db;
+            content: "";
+        }
+
+        .triage-panel[hidden] {
+            display: none;
+        }
+
         .run-grid > .card:nth-child(2) .filters {
             margin-top: 8px;
         }
@@ -936,8 +973,13 @@
             <div class="muted">Select a stored report to inspect.</div>
         </aside>
         <section class="card" aria-label="Test triage results"><div class="workspace-title">Selected run</div><h2>Test triage</h2>
-            <h3>Test results</h3>
-            <p class="muted">Each row is one logical test. TestNG retry attempts are retained inside the result history.</p>
+            <nav class="center-tabs" aria-label="Triage views" role="tablist">
+                <button id="testTab" class="center-tab" type="button" role="tab" aria-selected="true" aria-controls="testPanel">Test results</button>
+                <button id="groupTab" class="center-tab" type="button" role="tab" aria-selected="false" aria-controls="groupPanel">Failure groups</button>
+            </nav>
+            <div id="testPanel" class="triage-panel" role="tabpanel" aria-labelledby="testTab">
+                <h3>Test results</h3>
+                <p class="muted">Each row is one logical test. TestNG retry attempts are retained inside the result history.</p>
             <div class="filters"><select id="testStatus" aria-label="Filter test results">
                 <option value="">All test results</option>
                 <option value="passed">Passed</option>
@@ -948,9 +990,12 @@
             </select><input id="testSearch" placeholder="Search tests, classes, or parameters"
                             aria-label="Search test results"></div>
             <div id="testResults" class="test-results"><p class="muted">No test results loaded yet.</p></div>
-            <div class="workspace-title" style="margin-top:24px">Confirmed evidence</div><h2>Failure groups</h2>
-            <p class="muted">Failures and errors are grouped from the reported results.</p>
-            <div id="list" class="list"><p style="padding:20px">No failure groups yet.</p></div>
+            </div>
+            <div id="groupPanel" class="triage-panel" role="tabpanel" aria-labelledby="groupTab" hidden>
+                <div class="workspace-title">Confirmed evidence</div><h2>Failure groups</h2>
+                <p class="muted">Failures and errors are grouped from the reported results.</p>
+                <div id="list" class="list"><p style="padding:20px">No failure groups yet.</p></div>
+            </div>
         </section>
         <aside id="detail" class="card detail" aria-label="Selected result inspector"><div class="inspector-title">Inspector</div><p>Select a failure group to inspect its evidence.</p></aside>
     </section>
@@ -966,6 +1011,14 @@
         "'": '&#39;'
     }[c]));
     const normalize = value => String(value ?? '').toLowerCase().replace(/\s+/g, ' ').trim();
+    function setCenterTab(tabName) {
+        const showTests = tabName === 'tests';
+        $('testTab').setAttribute('aria-selected', String(showTests));
+        $('groupTab').setAttribute('aria-selected', String(!showTests));
+        $('testPanel').hidden = !showTests;
+        $('groupPanel').hidden = showTests;
+    }
+
     const groupFilters = document.createElement('div');
     groupFilters.className = 'filters';
     groupFilters.innerHTML = '<select id="groupOutcome" aria-label="Filter failure groups by outcome"><option value="">All outcomes</option><option value="FAILED">Failed</option><option value="ERROR">Error</option></select><input id="groupSearch" placeholder="Search failure groups" aria-label="Search failure groups">';
@@ -1056,6 +1109,7 @@
 
     function pick(id) {
         selected = id;
+        setCenterTab('groups');
         renderDetail(groups.find(group => group.id === id));
         refreshGroups();
     }
@@ -1111,6 +1165,7 @@
 
     async function openTestDetail(runId, testId) {
         selected = null;
+        setCenterTab('tests');
         const local = (currentRun?.logicalTests || []).find(test => test.id === testId);
         if (!runId) return local && renderTestDetail({run: currentRun, result: local});
         const response = await fetch('/api/test-runs/' + runId + '/results/' + testId);
@@ -1227,7 +1282,10 @@
     $('preview').onclick = preview;
     $('upload').onclick = upload;
     $('demo').onclick = demo;
+    $('testTab').onclick = () => setCenterTab('tests');
+    $('groupTab').onclick = () => setCenterTab('groups');
     $('needsReviewMetric').onclick = () => {
+        setCenterTab('tests');
         $('testStatus').value = 'needs-review';
         renderTests();
         document.getElementById('testResults')?.scrollIntoView({behavior: 'smooth', block: 'start'});

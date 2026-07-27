@@ -346,6 +346,11 @@ test("dashboard source renders adapter and report metadata fields", async () => 
   assert.match(dashboard, /Back to results/);
   assert.match(dashboard, /retry attempts are retained inside the result history/);
   assert.match(dashboard, /Attempt history/);
+  assert.match(dashboard, /id="testTab"/);
+  assert.match(dashboard, /id="groupTab"/);
+  assert.match(dashboard, /aria-controls="testPanel"/);
+  assert.match(dashboard, /aria-controls="groupPanel"/);
+  assert.match(dashboard, /function setCenterTab/);
   assert.match(dashboard, /developer\.html/);
   assert.doesNotMatch(dashboard, /async function devAll\(\)/);
 });
