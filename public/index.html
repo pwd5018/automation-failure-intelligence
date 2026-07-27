@@ -304,6 +304,12 @@
             background: #f4f5ff
         }
 
+        .item[role="button"]:focus {
+            background: #f4f5ff;
+            outline: 2px solid #5965db;
+            outline-offset: -2px
+        }
+
         .item b {
             display: block;
             margin-bottom: 5px
@@ -450,6 +456,27 @@
         .detail-back {
             background: #eef0ff;
             color: #4b57c5
+        }
+
+        .detail-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 7px;
+            align-items: center
+        }
+
+        .copy-button {
+            background: #f7f8fb;
+            color: #5965db;
+            border: 1px solid #d8deea;
+            font-size: 12px;
+            padding: 8px 10px
+        }
+
+        .copy-status {
+            color: #18794e;
+            font-size: 12px;
+            min-height: 18px
         }
 
         .detail-summary {
@@ -1028,11 +1055,11 @@
                 <div id="list" class="list"><p style="padding:20px">No failure groups yet.</p></div>
             </div>
         </section>
-        <aside id="detail" class="card detail" aria-label="Selected result inspector"><div class="inspector-title">Inspector</div><p>Select a failure group to inspect its evidence.</p></aside>
+        <aside id="detail" class="card detail" aria-label="Selected result inspector" aria-live="polite"><div class="inspector-title">Inspector</div><p>Select a failure group to inspect its evidence.</p></aside>
     </section>
 </main>
 <script>
-    let groups = [], currentRun = null, selected = null, activeSuggestions = [];
+    let groups = [], currentRun = null, selected = null, activeSuggestions = [], activeCopyPayloads = {};
     const $ = id => document.getElementById(id);
     const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({
         '&': '&amp;',
@@ -1139,7 +1166,7 @@
             const occurrences = group.selectedRunOccurrences ?? group.occurrences;
             const tests = group.selectedRunTests ?? group.tests ?? [];
             const runs = group.selectedRunRuns ?? group.runs ?? [];
-            return '<div class="item ' + (group.id === selected ? 'active' : '') + '" onclick="pick(\'' + group.id + '\')"><b>' + esc(group.summary) + '</b><div class="muted">' + occurrences + ' matching tests in this run - ' + runs.length + ' run(s): ' + tests.map(esc).join(', ') + '</div><span class="badge ' + group.classification + '">' + esc((group.outcomes || []).join(' / ') || 'FAILURE') + '</span> <span class="badge ' + group.classification + '">' + esc(group.classification) + '</span></div>'
+            return '<div class="item ' + (group.id === selected ? 'active' : '') + '" role="button" tabindex="0" aria-label="Open failure group ' + esc(group.summary) + '" onclick="pick(\'' + group.id + '\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();pick(\'' + group.id + '\')}\"><b>' + esc(group.summary) + '</b><div class="muted">' + occurrences + ' matching tests in this run - ' + runs.length + ' run(s): ' + tests.map(esc).join(', ') + '</div><span class="badge ' + group.classification + '">' + esc((group.outcomes || []).join(' / ') || 'FAILURE') + '</span> <span class="badge ' + group.classification + '">' + esc(group.classification) + '</span></div>'
         }).join('') : '<p style="padding:20px">No shared failure groups in this run. Review failed and error results above.</p>';
         if (selected) renderDetail(groups.find(group => group.id === selected));
     }
@@ -1175,6 +1202,10 @@
 
     function renderTestDetail(payload) {
         const result = payload.result;
+        activeCopyPayloads = {
+            result: [result.name, result.className || result.suite || '', result.suite || '', result.parameters || '', detailStatus(result)].filter(Boolean).join(' | '),
+            'result-evidence': (result.attempts || []).map((attempt, index) => 'Attempt ' + (attempt.attemptNumber || index + 1) + ' [' + String(attempt.rawStatus || attempt.status || 'UNKNOWN').toUpperCase() + ']\n' + (attempt.message || '') + (attempt.stackTrace ? '\n' + attempt.stackTrace : '')).join('\n\n')
+        };
         const siblings = (currentRun?.logicalTests || []).filter(test => detailGroupKey(test) === detailGroupKey(result));
         const iterations = siblings.length ? siblings : [result];
         const counts = {
@@ -1191,7 +1222,7 @@
             const attemptsMarkup = attempts.map((attempt, attemptIndex) => '<div class="attempt-detail-row"><b>Attempt ' + (attempt.attemptNumber || attemptIndex + 1) + '</b><span>' + esc(String(attempt.rawStatus || attempt.status || 'UNKNOWN').toUpperCase()) + '</span><span>' + esc(attempt.message || attempt.stackTrace || 'No additional evidence reported.') + '</span></div>').join('');
             return '<article class="iteration-card"><div class="iteration-heading"><div><b>Iteration ' + (index + 1) + '</b><div class="muted">' + esc(test.parameters || 'No parameter signature reported') + '</div></div><span class="status ' + esc(String(test.finalStatus || 'unknown')) + '">' + esc(detailStatus(test)) + '</span></div>' + (test.needsReview ? '<div class="notice"><b>Needs review:</b> ' + esc(test.reviewReason || 'The source did not provide enough metadata to classify this sequence.') + '<br>Observed: ' + test.observed.passed + ' passed, ' + test.observed.failed + ' failed, ' + test.observed.errors + ' errors, ' + test.observed.skipped + ' skipped.</div>' : '') + '<div class="attempt-detail">' + attemptsMarkup + '</div></article>';
         }).join('');
-        $('detail').innerHTML = '<div class="detail-toolbar"><div><h2>' + esc(result.name) + '</h2><div class="muted">' + esc(result.className || result.suite || '') + ' - ' + esc(result.suite || '') + '</div></div><button class="detail-back" onclick="closeTestDetail()">Back to results</button></div><p class="muted">Result details from ' + esc(payload.run.build || payload.run.id) + ' · ' + esc(payload.run.environment || 'default') + '</p><div class="detail-summary"><div class="detail-stat"><b>' + iterations.length + '</b><span>Iterations</span></div><div class="detail-stat"><b>' + counts.passed + '</b><span>Passed</span></div><div class="detail-stat"><b>' + counts.failed + '</b><span>Failed</span></div><div class="detail-stat"><b>' + counts.errors + '</b><span>Errors</span></div><div class="detail-stat"><b>' + counts.skipped + '</b><span>Skipped</span></div><div class="detail-stat"><b>' + counts.retries + '</b><span>Retries</span></div><div class="detail-stat"><b>' + counts.flaky + '</b><span>Flaky</span></div><div class="detail-stat"><b>' + counts.review + '</b><span>Needs review</span></div></div>' + dispositionEditor(payload) + '<h3>Iterations and attempts</h3><div class="iteration-list">' + iterationMarkup + '</div>';
+        $('detail').innerHTML = '<div class="detail-toolbar"><div><div class="inspector-title">Result inspector</div><h2>' + esc(result.name) + '</h2><div class="muted">' + esc(result.className || result.suite || '') + ' - ' + esc(result.suite || '') + '</div></div><div class="detail-actions"><button class="copy-button" onclick="copyInspectorText(\'result\', this)">Copy summary</button><button class="copy-button" onclick="copyInspectorText(\'result-evidence\', this)">Copy evidence</button><button class="detail-back" onclick="closeTestDetail()">Back to results</button></div></div><div class="copy-status" aria-live="polite"></div><p class="muted">Result details from ' + esc(payload.run.build || payload.run.id) + ' · ' + esc(payload.run.environment || 'default') + '</p><div class="detail-summary"><div class="detail-stat"><b>' + iterations.length + '</b><span>Iterations</span></div><div class="detail-stat"><b>' + counts.passed + '</b><span>Passed</span></div><div class="detail-stat"><b>' + counts.failed + '</b><span>Failed</span></div><div class="detail-stat"><b>' + counts.errors + '</b><span>Errors</span></div><div class="detail-stat"><b>' + counts.skipped + '</b><span>Skipped</span></div><div class="detail-stat"><b>' + counts.retries + '</b><span>Retries</span></div><div class="detail-stat"><b>' + counts.flaky + '</b><span>Flaky</span></div><div class="detail-stat"><b>' + counts.review + '</b><span>Needs review</span></div></div>' + dispositionEditor(payload) + '<h3>Iterations and attempts</h3><div class="iteration-list">' + iterationMarkup + '</div>';
         if (resultCanBeClassified(result) && $('resultClassification')) $('resultClassification').value = payload.disposition?.classification || 'unknown';
         $('detail').scrollIntoView({behavior: 'smooth', block: 'start'});
     }
@@ -1218,6 +1249,26 @@
         $('resultNotes').value = suggestion.notes || '';
     }
 
+    async function copyInspectorText(key, button) {
+        const text = activeCopyPayloads[key] || '';
+        if (!text) return;
+        try {
+            await navigator.clipboard.writeText(text);
+        } catch {
+            const fallback = document.createElement('textarea');
+            fallback.value = text;
+            document.body.appendChild(fallback);
+            fallback.select();
+            document.execCommand('copy');
+            fallback.remove();
+        }
+        const status = $('detail').querySelector('.copy-status');
+        if (status) status.textContent = 'Copied to clipboard.';
+        const original = button.textContent;
+        button.textContent = 'Copied';
+        setTimeout(() => { button.textContent = original; }, 1400);
+    }
+
     async function saveResultDisposition(runId, testId) {
         const key = $('resultJira').value.trim();
         const response = await fetch('/api/test-runs/' + runId + '/results/' + testId + '/disposition', {
@@ -1238,13 +1289,18 @@
 
     function renderDetail(group) {
         if (!group) {
+            activeCopyPayloads = {};
             $('detail').innerHTML = '<p>Select a failure group to inspect its evidence.</p>';
             return;
         }
         const evidence = (group.evidence || []).map(item => '<button class="evidence-link" onclick="openEvidence(\'' + item.runId + '\',\'' + item.testId + '\')">' + esc(item.outcome) + ' - ' + esc(item.testName) + ' - ' + esc(item.build) + '</button>').join('');
         const occurrences = group.selectedRunOccurrences ?? group.occurrences;
         const tests = group.selectedRunTests ?? group.tests ?? [];
-        $('detail').innerHTML = '<h2>' + esc(group.summary) + '</h2><div class="muted">' + esc(occurrences) + ' occurrence(s) in this run - ' + esc(group.occurrences) + ' overall occurrence(s) - ' + esc((group.outcomes || []).join(' / ') || 'FAILURE') + ' - First seen ' + esc(group.firstSeen) + ' - Last seen ' + esc(group.lastSeen) + '</div><div class="row"><select id="classification"><option value="unknown">Unknown</option><option value="product-defect">Product defect</option><option value="test-defect">Test defect</option><option value="environment-issue">Environment issue</option><option value="test-data-issue">Test data issue</option><option value="known-failure">Known failure</option><option value="duplicate">Duplicate</option></select><button onclick="saveGroup(\'' + group.id + '\')">Save</button></div><input id="jira" placeholder="Jira issue key, e.g. QA-123" value="' + esc(group.jiraIssue?.key || '') + '"><textarea id="notes" placeholder="Investigation notes">' + esc(group.notes) + '</textarea><h3>Evidence by reported result</h3><div class="evidence-list">' + (evidence || '<p class="muted">Exact links are not available for this older stored group.</p>') + '</div><div class="muted">Tests in this run: ' + tests.map(esc).join(', ') + '<br>Suites: ' + (group.suites || []).map(esc).join(', ') + '<br>Environments: ' + (group.environments || []).map(esc).join(', ') + '</div><pre>' + esc(group.stackTrace) + '</pre>';
+        activeCopyPayloads = {
+            group: [group.summary, (group.outcomes || []).join(' / ') || 'FAILURE', occurrences + ' occurrence(s) in this run', group.firstSeen && 'First seen ' + group.firstSeen, group.lastSeen && 'Last seen ' + group.lastSeen].filter(Boolean).join(' | '),
+            'group-evidence': group.stackTrace || ''
+        };
+        $('detail').innerHTML = '<div class="detail-toolbar"><div><div class="inspector-title">Failure inspector</div><h2>' + esc(group.summary) + '</h2></div><div class="detail-actions"><button class="copy-button" onclick="copyInspectorText(\'group\', this)">Copy summary</button><button class="copy-button" onclick="copyInspectorText(\'group-evidence\', this)">Copy stack trace</button></div></div><div class="copy-status" aria-live="polite"></div><div class="muted">' + esc(occurrences) + ' occurrence(s) in this run - ' + esc(group.occurrences) + ' overall occurrence(s) - ' + esc((group.outcomes || []).join(' / ') || 'FAILURE') + ' - First seen ' + esc(group.firstSeen) + ' - Last seen ' + esc(group.lastSeen) + '</div><div class="row"><select id="classification"><option value="unknown">Unknown</option><option value="product-defect">Product defect</option><option value="test-defect">Test defect</option><option value="environment-issue">Environment issue</option><option value="test-data-issue">Test data issue</option><option value="known-failure">Known failure</option><option value="duplicate">Duplicate</option></select><button onclick="saveGroup(\'' + group.id + '\')">Save</button></div><input id="jira" placeholder="Jira issue key, e.g. QA-123" value="' + esc(group.jiraIssue?.key || '') + '"><textarea id="notes" placeholder="Investigation notes">' + esc(group.notes) + '</textarea><h3>Evidence by reported result</h3><div class="evidence-list">' + (evidence || '<p class="muted">Exact links are not available for this older stored group.</p>') + '</div><div class="muted">Tests in this run: ' + tests.map(esc).join(', ') + '<br>Suites: ' + (group.suites || []).map(esc).join(', ') + '<br>Environments: ' + (group.environments || []).map(esc).join(', ') + '</div><pre>' + esc(group.stackTrace) + '</pre>';
         $('classification').value = group.classification;
     }
 

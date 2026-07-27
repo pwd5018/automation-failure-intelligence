@@ -107,10 +107,10 @@ Completed slices:
 - Keep the mobile layout stacked and usable; the inspector will become an overlay in a later slice.
 - Add center-panel tabs for Test Results and Failure Groups.
 - Move report ingestion into an accessible responsive drawer while preserving the existing upload element IDs and handlers.
+- Polish inspector interactions with copy-summary/evidence controls, visible copy feedback, and keyboard activation for failure-group rows.
 
 Planned follow-up slices:
 
-- Polish inspector interactions, copy controls, and keyboard navigation.
 - Complete desktop, phone-sized, accessibility, and Vercel validation.
 
 ### Phase 8 - Manual ambiguity resolution (deferred)

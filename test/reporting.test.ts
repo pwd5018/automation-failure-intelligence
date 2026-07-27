@@ -354,6 +354,9 @@ test("dashboard source renders adapter and report metadata fields", async () => 
   assert.match(dashboard, /id="ingestionToggle"/);
   assert.match(dashboard, /aria-controls="ingestionDrawer"/);
   assert.match(dashboard, /function setIngestionOpen/);
+  assert.match(dashboard, /copyInspectorText/);
+  assert.match(dashboard, /aria-live="polite"/);
+  assert.match(dashboard, /role="button" tabindex="0" aria-label="Open failure group/);
   assert.match(dashboard, /developer\.html/);
   assert.doesNotMatch(dashboard, /async function devAll\(\)/);
 });
