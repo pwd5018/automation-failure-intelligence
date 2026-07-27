@@ -95,21 +95,21 @@ Add a focused result-detail surface for investigating one reported testcase at a
 - Mobile-friendly navigation from the run workspace and failure evidence.
 - Preserve the exact source contract and keep the main dashboard lightweight.
 
-### Phase 7 - UI redesign and triage workspace (next)
+### Phase 7 - UI redesign and triage workspace (in progress)
 
 Transform the existing dashboard into a responsive investigation workspace without changing parser semantics, source-result identity, or persistence contracts.
 
-First implementation slice:
+Completed slices:
 
 - Add a workspace shell with a header, run sidebar, results workspace, and persistent desktop inspector surface.
 - Establish the visual foundation for dense triage: compact summary metrics, clearer panel hierarchy, status accents, focus states, and bounded scrolling.
 - Preserve the existing result, failure-group, upload, storage-status, and detail element IDs while the layout is being migrated.
 - Keep the mobile layout stacked and usable; the inspector will become an overlay in a later slice.
+- Add center-panel tabs for Test Results and Failure Groups.
+- Move report ingestion into an accessible responsive drawer while preserving the existing upload element IDs and handlers.
 
 Planned follow-up slices:
 
-- Add center-panel tabs for Test Results and Failure Groups.
-- Move ingestion into a responsive drawer.
 - Polish inspector interactions, copy controls, and keyboard navigation.
 - Complete desktop, phone-sized, accessibility, and Vercel validation.
 

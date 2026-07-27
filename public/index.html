@@ -642,21 +642,41 @@
             margin-bottom: 0;
         }
 
-        .controls {
-            grid-template-columns: minmax(220px, 1.4fr) minmax(160px, .8fr) minmax(160px, .8fr) auto auto;
+        .hero-actions {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+            gap: 8px;
+        }
+
+        .ingestion-drawer {
+            position: relative;
+            display: grid;
+            grid-template-columns: minmax(220px, 1.4fr) minmax(160px, .8fr) minmax(160px, .8fr) auto auto auto;
             align-items: end;
             padding: 14px 16px;
-            margin-bottom: 14px;
+            margin: 0 0 14px auto;
+            max-width: 980px;
             border-radius: 14px;
         }
 
-        .controls .wide {
+        .ingestion-drawer[hidden] {
+            display: none;
+        }
+
+        .ingestion-drawer .wide {
             grid-column: 1 / -1;
             margin-bottom: -3px;
             font-size: 14px;
             color: #5965db;
             text-transform: uppercase;
             letter-spacing: .08em;
+        }
+
+        .ingestion-close {
+            background: transparent;
+            color: #657087;
+            border: 1px solid #d7ddea;
         }
 
         .summary {
@@ -831,7 +851,8 @@
                 flex-direction: column
             }
 
-            .hero .field {
+            .hero .field,
+            .hero-actions {
                 justify-content: flex-start
             }
 
@@ -856,8 +877,12 @@
                 padding: 20px 12px 36px
             }
 
-            .controls {
+            .ingestion-drawer {
                 grid-template-columns:1fr
+            }
+
+            .ingestion-drawer .wide {
+                grid-column: auto;
             }
 
             .summary-top {
@@ -875,6 +900,10 @@
             .hero .field, .hero button, .developer-link {
                 width: 100%;
                 max-width: none
+            }
+
+            .hero-actions {
+                width: 100%;
             }
 
             .card {
@@ -918,14 +947,16 @@
             <div class="eyebrow">Automation Failure Intelligence</div>
             <h1>Truthful results from noisy test runs.</h1>
             <p>Store one report at a time and investigate every result exactly as reported.</p></div>
-        <div class="field">
+        <div class="hero-actions">
+            <button id="ingestionToggle" type="button" aria-expanded="false" aria-controls="ingestionDrawer">Ingest report</button>
             <button id="demo">Load demo report</button>
             <a class="developer-link" href="/developer.html" target="_blank" rel="noopener">Developer checks</a></div>
     </header>
-    <section class="card controls"><h2 class="wide">Load a TestNG JUnit report</h2><input id="file" type="file" accept=".xml"><input
+    <section id="ingestionDrawer" class="card ingestion-drawer" aria-labelledby="ingestionTitle" hidden><h2 id="ingestionTitle" class="wide">Load a TestNG JUnit report</h2><input id="file" type="file" accept=".xml"><input
             id="build" placeholder="Build number"><input id="environment" placeholder="Environment">
         <button id="preview">Preview report</button>
         <button id="upload">Ingest TestNG JUnit</button>
+        <button id="ingestionClose" class="ingestion-close" type="button">Close</button>
     </section>
     <section class="card summary">
         <div class="summary-top">
@@ -1017,6 +1048,12 @@
         $('groupTab').setAttribute('aria-selected', String(!showTests));
         $('testPanel').hidden = !showTests;
         $('groupPanel').hidden = showTests;
+    }
+
+    function setIngestionOpen(open) {
+        $('ingestionDrawer').hidden = !open;
+        $('ingestionToggle').setAttribute('aria-expanded', String(open));
+        if (open) $('file').focus();
     }
 
     const groupFilters = document.createElement('div');
@@ -1282,6 +1319,8 @@
     $('preview').onclick = preview;
     $('upload').onclick = upload;
     $('demo').onclick = demo;
+    $('ingestionToggle').onclick = () => setIngestionOpen($('ingestionDrawer').hidden);
+    $('ingestionClose').onclick = () => setIngestionOpen(false);
     $('testTab').onclick = () => setCenterTab('tests');
     $('groupTab').onclick = () => setCenterTab('groups');
     $('needsReviewMetric').onclick = () => {

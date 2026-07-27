@@ -351,6 +351,9 @@ test("dashboard source renders adapter and report metadata fields", async () => 
   assert.match(dashboard, /aria-controls="testPanel"/);
   assert.match(dashboard, /aria-controls="groupPanel"/);
   assert.match(dashboard, /function setCenterTab/);
+  assert.match(dashboard, /id="ingestionToggle"/);
+  assert.match(dashboard, /aria-controls="ingestionDrawer"/);
+  assert.match(dashboard, /function setIngestionOpen/);
   assert.match(dashboard, /developer\.html/);
   assert.doesNotMatch(dashboard, /async function devAll\(\)/);
 });
