@@ -90,11 +90,23 @@ Add a focused result-detail surface for investigating one reported testcase at a
 - Data-provider slice (implemented): metadata-rich repeated identities collapse into iterations/attempts; metadata-poor or ambiguous repeated identities remain grouped as `NEEDS REVIEW` with raw records and observed counts.
 - Result-detail slice (implemented): result rows and failure evidence open a focused detail workspace with iteration totals, outcome counts, and per-attempt evidence.
 - Result-classification slice (implemented): individual failed/review results accept persisted dispositions, Jira references, and notes; matching prior decisions are offered as confirmation suggestions on later runs.
+- Phase 7 is now reserved for user-resolved ambiguity overlays; external ingestion and collaboration move to Phase 8.
 - Remaining gate: complete mobile/Vercel validation for the detail workspace.
 - Mobile-friendly navigation from the run workspace and failure evidence.
 - Preserve the exact source contract and keep the main dashboard lightweight.
 
-### Phase 7 - External ingestion and collaboration (future)
+### Phase 7 - Manual ambiguity resolution (next)
+
+Give users an explicit, run-scoped way to resolve metadata-poor TestNG groups without changing the source XML or global parser rules:
+
+- Select raw records within a `NEEDS REVIEW` group and split them into separate logical tests/iterations.
+- Combine selected records into one logical test with ordered attempts.
+- Name or identify the resulting logical test and choose its terminal outcome.
+- Preview the resulting totals before saving.
+- Persist the resolution for that specific run and allow it to be reopened, edited, or reset.
+- Keep unresolved records visible as `NEEDS REVIEW` and retain every raw record for auditability.
+
+### Phase 8 - External ingestion and collaboration (future)
 
 - CI/webhook ingestion.
 - Authentication.

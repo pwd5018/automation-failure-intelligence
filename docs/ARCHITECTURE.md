@@ -37,9 +37,11 @@ The normalized schema is intentionally additive. New writes populate these colum
 
 The separate `public/developer.html` workspace runs the Phase 5 API checks without cluttering the product dashboard. It is opened from the main dashboard in a new tab and is intended to grow with future diagnostics.
 
-Phase 6 Slice 1 provides `GET /api/test-runs/:runId/results/:testId` for one reported testcase, keeping the detail contract separate from the lightweight run dashboard. The result-detail workspace now opens from test rows and failure evidence, groups sibling logical results as data-provider iterations, and renders each attempt with its source status and evidence. The remaining Phase 6 gate is mobile/deployment validation. Phase 7 is reserved for external ingestion and collaboration.
+Phase 6 Slice 1 provides `GET /api/test-runs/:runId/results/:testId` for one reported testcase, keeping the detail contract separate from the lightweight run dashboard. The result-detail workspace now opens from test rows and failure evidence, groups sibling logical results as data-provider iterations, and renders each attempt with its source status and evidence. The remaining Phase 6 gate is mobile/deployment validation. Phase 7 will add run-scoped manual ambiguity resolutions; Phase 8 is reserved for external ingestion and collaboration.
 
 Result dispositions are stored separately from the source XML and failure groups. A disposition is keyed to the run result and retains classification, Jira reference, notes, test identity, and the normalized failure signature. Later matching results receive prior dispositions as suggestions; the application never applies them automatically, allowing changed failures to receive a new reason.
+
+Manual ambiguity resolutions will follow the same overlay boundary: raw XML and raw records remain immutable, while a run-scoped resolution maps selected raw record IDs into user-defined logical tests/iterations and terminal outcomes. Unresolved records continue to report as `NEEDS REVIEW`; no global retry inference is introduced.
 
 Project retry policies are stored in `afi_retry_configs` and validated by the retry-config API. Persisting a policy does not override the source-truth boundary: retry/data-provider aggregation still requires explicit TestNG metadata.
 
