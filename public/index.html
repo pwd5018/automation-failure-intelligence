@@ -4,6 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <title>Automation Failure Intelligence</title>
+    <link rel="stylesheet" href="/app/assets/index.css">
     <style>
         :root {
             font-family: Inter, ui-sans-serif, system-ui, sans-serif;
@@ -1220,7 +1221,7 @@
     </style>
 </head>
 <body>
-<main id="top" class="shell">
+    <main id="top" class="shell">
     <nav class="project-rail" aria-label="Project navigation">
         <a class="project-rail-mark" href="#top" aria-label="Automation Failure Intelligence home">AF</a>
         <a class="project-rail-link" href="#summary" aria-current="page" aria-label="Overview">OV</a>
@@ -1230,7 +1231,8 @@
         <div class="project-rail-spacer"></div>
         <a class="project-rail-link" href="/developer.html" target="_blank" rel="noopener" aria-label="Developer checks">DC</a>
     </nav>
-    <header class="hero">
+    <div id="reactHeaderRoot"></div>
+    <header class="hero legacy-hero-seam" aria-hidden="true">
         <div>
             <div class="eyebrow">Automation Failure Intelligence</div>
             <h1>Truthful results from noisy test runs.</h1>
@@ -1247,6 +1249,8 @@
         <button id="ingestionClose" class="ingestion-close" type="button">Close</button>
     </section>
     <section id="summary" class="card summary">
+        <div id="reactSummaryRoot"></div>
+        <div class="legacy-summary-seam" aria-hidden="true">
         <div class="summary-top">
             <div>
                 <div class="muted">Latest report</div>
@@ -1274,6 +1278,7 @@
             <span><b>Needs review</b> ambiguous groups kept as raw records.</span>
         </div>
         <div id="summaryNote"></div>
+        </div>
     </section>
     <section id="runWorkspace" class="run-grid">
         <aside class="card" aria-label="Run navigation"><div class="run-sidebar-title">Run navigation</div><h2>Run workspace</h2>
@@ -1319,7 +1324,8 @@
         <aside id="detail" class="card detail" aria-label="Selected result inspector" aria-live="polite"><div class="inspector-title">Inspector</div><p>Select a failure group to inspect its evidence.</p></aside>
     </section>
 </main>
-<script>
+    <script type="module" src="/app/assets/index.js"></script>
+    <script>
     let groups = [], currentRun = null, selected = null, activeSuggestions = [], activeCopyPayloads = {};
     const $ = id => document.getElementById(id);
     const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({

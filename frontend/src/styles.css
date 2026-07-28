@@ -8,21 +8,157 @@ body {
   margin: 0;
 }
 
-.migration-shell {
-  box-sizing: border-box;
-  max-width: 720px;
-  margin: 12vh auto;
-  padding: 32px;
-  background: #fff;
-  border: 1px solid #dfe1e6;
-  border-radius: 12px;
-  box-shadow: 0 8px 24px rgba(9, 30, 66, 0.08);
+.legacy-hero-seam,
+.legacy-summary-seam {
+  display: none !important;
 }
 
-.migration-eyebrow {
-  color: #0052cc;
-  font-size: 0.75rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
+.react-header {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 20px 24px;
+  margin: 0 0 16px;
+  background: #172b4d;
+  color: #fff;
+  border-radius: 10px;
+  box-shadow: 0 8px 20px rgba(9, 30, 66, 0.12);
+}
+
+.react-header h1 {
+  margin: 3px 0 0;
+  font-size: clamp(1.25rem, 2.5vw, 1.8rem);
+  line-height: 1.15;
+}
+
+.react-eyebrow,
+.react-kicker {
+  color: #b3d4ff;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
+}
+
+.react-header-actions,
+.react-summary-badges,
+.react-summary-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.react-button,
+.react-icon-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  box-sizing: border-box;
+  padding: 0 12px;
+  border: 1px solid rgba(255,255,255,0.32);
+  border-radius: 6px;
+  background: transparent;
+  color: #fff;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.react-button:hover,
+.react-button:focus-visible,
+.react-icon-link:hover,
+.react-icon-link:focus-visible { background: rgba(255,255,255,0.12); }
+.react-button-primary { border-color: #4c9aff; background: #0052cc; }
+
+.react-summary {
+  padding: 4px;
+}
+
+.react-summary-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.react-summary h2 {
+  margin: 5px 0 0;
+  color: #172b4d;
+  font-size: clamp(1.2rem, 2.3vw, 1.7rem);
+}
+
+.react-status-pill,
+.react-processing-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 9px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+}
+
+.react-status-pill.passed { background: #e3fcef; color: #006644; }
+.react-status-pill.failed { background: #ffebe6; color: #bf2600; }
+.react-status-pill.unknown { background: #fff0b3; color: #7a5d00; }
+.react-processing-pill { background: #ebecf0; color: #42526e; }
+
+.react-status-bar {
+  display: flex;
+  overflow: hidden;
+  height: 10px;
+  margin: 18px 0 14px;
+  border-radius: 999px;
+  background: #ebecf0;
+}
+
+.react-status-segment { min-width: 2px; }
+.react-status-segment.passed { background: #36b37e; }
+.react-status-segment.failed,
+.react-status-segment.errors { background: #de350b; }
+.react-status-segment.skipped { background: #ffab00; }
+.react-status-segment.review { background: #6554c0; }
+
+.react-metrics {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.react-metric {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid #dfe1e6;
+  border-radius: 7px;
+  background: #fff;
+  color: #42526e;
+  font: inherit;
+  font-size: 0.78rem;
+  text-align: left;
+}
+
+.react-metric b { color: #172b4d; font-size: 1rem; }
+.react-metric-button { cursor: pointer; }
+.react-metric-button:hover,
+.react-metric-button:focus-visible { border-color: #6554c0; box-shadow: 0 0 0 2px rgba(101,84,192,0.14); }
+.react-summary-foot { margin-top: 12px; color: #6b778c; font-size: 0.75rem; }
+
+@media (max-width: 700px) {
+  .react-header { align-items: flex-start; flex-direction: column; padding: 18px; }
+  .react-header-actions { width: 100%; }
+  .react-button, .react-icon-link { flex: 1; }
+  .react-summary-heading { flex-direction: column; }
+  .react-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .react-metric:last-child { grid-column: 1 / -1; }
 }

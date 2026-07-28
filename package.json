@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "build": "tsc",
+    "build": "tsc && npm run frontend:build",
     "frontend:build": "vite build --config vite.config.ts",
     "start": "node dist/server.js",
     "test": "npm run build && node --test dist/test/reporting.test.js",
