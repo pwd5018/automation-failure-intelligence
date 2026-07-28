@@ -350,6 +350,7 @@ test("dashboard source renders adapter and report metadata fields", async () => 
   assert.match(dashboard, /id="testTab"/);
   assert.match(dashboard, /id="groupTab"/);
   assert.match(dashboard, /id="reactInspectorRoot"/);
+  assert.match(dashboard, /aria-label="JUnit XML report file"/);
   assert.match(dashboard, /afi:result-detail/);
   assert.match(frontend, /Execution trace/);
   assert.match(frontend, /Save disposition/);

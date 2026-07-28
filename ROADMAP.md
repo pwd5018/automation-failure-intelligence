@@ -118,7 +118,7 @@ Completed slices:
 
 Planned follow-up slices:
 
-- Complete desktop, phone-sized, accessibility, and Vercel validation, including `/api/health`, uploads, demo loading, refresh persistence, and preview deployment checks. (Desktop and phone-sized local browser validation now covers the migrated React inspector.)
+- Complete Vercel validation, including production `/api/health`, uploads, demo loading, refresh persistence, and preview deployment checks. Desktop and phone-sized browser validation, local API/demo/refresh checks, and the accessibility sweep are complete; the upload control now has an explicit accessible name.
 
 Phase 7 handoff: the current UI foundation was merged through [PR #9](https://github.com/pwd5018/automation-failure-intelligence/pull/9) at merge commit `9dedf370ed0c0f4f25a8b9fe5089e0cb79dd4766`. Validation passed with `npm.cmd test` (33 tests) and live keyboard/copy inspector checks. The remaining production gate is the full desktop, phone-sized, accessibility, and Vercel validation record.
 
