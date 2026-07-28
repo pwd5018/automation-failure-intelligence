@@ -353,6 +353,9 @@ test("dashboard source renders adapter and report metadata fields", async () => 
   assert.match(dashboard, /afi:result-detail/);
   assert.match(frontend, /Execution trace/);
   assert.match(frontend, /Save disposition/);
+  assert.match(frontend, /role="combobox"/);
+  assert.match(frontend, /ArrowDown/);
+  assert.match(frontend, /react-run-command/);
   assert.match(dashboard, /aria-controls="testPanel"/);
   assert.match(dashboard, /aria-controls="groupPanel"/);
   assert.match(dashboard, /function setCenterTab/);

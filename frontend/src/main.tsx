@@ -157,13 +157,20 @@ function RunWorkspaceIsland() {
   const state = useLegacyRuns();
   const [query, setQuery] = React.useState("");
   const [status, setStatus] = React.useState("");
+  const [open, setOpen] = React.useState(false);
+  const [highlighted, setHighlighted] = React.useState(0);
+  const searchRef = React.useRef<HTMLInputElement>(null);
   const selected = state.options.find(option => option.id === state.selected) || state.options[0];
-  const visibleOptions = state.options.filter(option => option.label.toLowerCase().includes(query.toLowerCase()));
+  const visibleOptions = state.options.filter(option => option.label.toLowerCase().includes(query.toLowerCase()) || relativeTime(option.date).toLowerCase().includes(query.toLowerCase()));
   const selectRun = (id: string) => {
     const legacy = document.getElementById("runHistory") as HTMLSelectElement | null;
     if (!legacy) return;
     legacy.value = id;
     dispatchLegacy("runHistory", "change");
+    const legacySearch = document.getElementById("runSearch") as HTMLInputElement | null;
+    if (legacySearch) { legacySearch.value = ""; dispatchLegacy("runSearch", "input"); }
+    setOpen(false);
+    setQuery("");
   };
   const selectStatus = (value: string) => {
     setStatus(value);
@@ -174,17 +181,26 @@ function RunWorkspaceIsland() {
   };
   const searchRuns = (value: string) => {
     setQuery(value);
+    setHighlighted(0);
     const legacy = document.getElementById("runSearch") as HTMLInputElement | null;
     if (!legacy) return;
     legacy.value = value;
     dispatchLegacy("runSearch", "input");
   };
+  const handleSearchKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === "ArrowDown") { event.preventDefault(); setOpen(true); setHighlighted(index => Math.min(index + 1, Math.max(visibleOptions.length - 1, 0))); }
+    if (event.key === "ArrowUp") { event.preventDefault(); setOpen(true); setHighlighted(index => Math.max(index - 1, 0)); }
+    if (event.key === "Enter") { event.preventDefault(); const option = visibleOptions[highlighted]; if (option) selectRun(option.id); }
+    if (event.key === "Escape") { setOpen(false); searchRef.current?.blur(); }
+  };
   return <div className="react-run-workspace">
     <div className="react-run-heading"><div><span className="react-kicker">Run navigation</span><h2>Run workspace</h2></div><span className={`react-storage-dot ${state.status.toLowerCase().includes("postgres") ? "connected" : ""}`}><i />{state.status.replace(" connected", "")}</span></div>
     <label className="react-run-label" htmlFor="reactRunSearch">Search or select a stored run</label>
-    <input id="reactRunSearch" className="react-run-search" value={query} onChange={event => searchRuns(event.target.value)} placeholder="Search builds, status, or environment" />
-    <div className="react-run-options" role="listbox" aria-label="Stored runs">
-      {visibleOptions.length ? visibleOptions.map(option => <button key={option.id} type="button" role="option" aria-selected={option.id === state.selected} className={`react-run-option ${option.id === state.selected ? "selected" : ""}`} onClick={() => selectRun(option.id)}><span>{option.label}</span><time>{relativeTime(option.date)}</time></button>) : <p className="react-run-empty">No matching stored runs</p>}
+    <div className={`react-run-command ${open ? "open" : ""}`}>
+      <div className="react-run-command-row"><input ref={searchRef} id="reactRunSearch" className="react-run-search" role="combobox" aria-expanded={open} aria-controls="reactRunOptions" aria-autocomplete="list" value={query} onFocus={() => setOpen(true)} onChange={event => searchRuns(event.target.value)} onKeyDown={handleSearchKeyDown} placeholder="Search builds, status, or environment" /><button type="button" className="react-run-command-toggle" aria-label={open ? "Close run selector" : "Open run selector"} onClick={() => { setOpen(value => !value); searchRef.current?.focus(); }}>⌄</button></div>
+      {open && <div id="reactRunOptions" className="react-run-options" role="listbox" aria-label="Stored runs">
+        {visibleOptions.length ? visibleOptions.map((option, index) => <button key={option.id} type="button" role="option" aria-selected={option.id === state.selected} className={`react-run-option ${option.id === state.selected ? "selected" : ""} ${index === highlighted ? "highlighted" : ""}`} onMouseEnter={() => setHighlighted(index)} onClick={() => selectRun(option.id)}><span><b>{option.label}</b><small>Stored report</small></span><time>{relativeTime(option.date)}</time></button>) : <p className="react-run-empty">No matching stored runs</p>}
+      </div>}
     </div>
     <div className="react-run-tools"><select aria-label="Filter stored runs" value={status} onChange={event => selectStatus(event.target.value)}><option value="">All stored runs</option><option value="PASSED">Runs containing passed results</option><option value="FAILED">Runs containing failed results</option><option value="ERROR">Runs containing errors</option><option value="SKIPPED">Runs containing skipped results</option></select></div>
     <div className="react-run-meta"><span>{selected?.label || "No report selected"}</span><span>•</span><span>{selected ? relativeTime(selected.date) : "Awaiting report"}</span></div>

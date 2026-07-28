@@ -113,10 +113,11 @@ Completed slices:
 - Migrate the header, status summary, and run workspace into React islands, including a searchable stored-run list, status-filter bridge, relative timestamps, and inline storage status.
 - Migrate the test triage list and cards into React, including responsive status/search controls, status-colored issue cards, attempt-history pills, expandable review warnings, and the existing result-detail selection seam.
 - Migrate the result and failure-group inspector into React, including compact stat pills, execution-trace timeline, disposition editing, prior suggestions, copy actions, and preserved API/navigation seams.
+- Add a command-style searchable run selector with keyboard navigation, highlighted options, relative timestamps, and preserved run/status/search bridge behavior.
 
 Planned follow-up slices:
 
-- Add the command-style run selector, relative metadata display, compact status bar, and execution-trace timeline from the approved redesign specification.
+- Refine the compact status bar and relative metadata display from the approved redesign specification.
 - Complete desktop, phone-sized, accessibility, and Vercel validation, including `/api/health`, uploads, demo loading, refresh persistence, and preview deployment checks. (Desktop and phone-sized local browser validation now covers the migrated React inspector.)
 
 Phase 7 handoff: the current UI foundation was merged through [PR #9](https://github.com/pwd5018/automation-failure-intelligence/pull/9) at merge commit `9dedf370ed0c0f4f25a8b9fe5089e0cb79dd4766`. Validation passed with `npm.cmd test` (33 tests) and live keyboard/copy inspector checks. The remaining production gate is the full desktop, phone-sized, accessibility, and Vercel validation record.
