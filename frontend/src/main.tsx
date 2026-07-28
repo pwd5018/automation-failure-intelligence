@@ -94,7 +94,6 @@ function SummaryIsland() {
   const metrics = [
     ["Passed", summary.passed, "passed"],
     ["Failed", summary.failed, "failed"],
-    ["Errors", summary.errors, "errors"],
     ["Skipped", summary.skipped, "skipped"],
     ["Needs review", summary.review, "review"]
   ] as const;
@@ -108,11 +107,11 @@ function SummaryIsland() {
     </div>
     <StatusBar summary={summary} />
     <div className="react-metrics">
-      {metrics.map(([label, value, tone]) => <button key={label} type="button" className={`react-metric ${tone === "review" ? "react-metric-button" : ""}`} onClick={tone === "review" ? () => clickLegacy("needsReviewMetric") : undefined}>
+      {metrics.map(([label, value, tone]) => <button key={label} type="button" className={`react-metric ${tone} ${tone === "review" ? "react-metric-button" : ""}`} onClick={tone === "review" ? () => clickLegacy("needsReviewMetric") : undefined}>
         <span>{label}</span><b>{value}</b>
       </button>)}
     </div>
-    <div className="react-summary-foot"><span>{summary.logical} logical tests</span><span>{summary.retries} retries</span><span>{summary.review ? "Review required" : "Source statuses preserved"}</span></div>
+    <div className="react-summary-foot"><span>{summary.logical} logical tests</span><span>{summary.errors} errors</span><span>{summary.retries} retries</span><span>{summary.review ? "Review required" : "Source statuses preserved"}</span></div>
   </div>;
 }
 
@@ -136,17 +135,33 @@ function relativeTime(value?: string) {
   return `${Math.round(hours / 24)}d ago`;
 }
 
+type RunMetadata = { adapter: string; project: string; source: string; ingestedAt?: string };
+
+function readRunMetadata(): RunMetadata {
+  const info = document.getElementById("runInfo");
+  const metadataRows = Array.from(info?.querySelectorAll<HTMLElement>(".metadata-row") || []);
+  const valueFor = (label: string) => metadataRows.find(row => row.querySelector(".metadata-label")?.textContent?.trim() === label)?.querySelector("span:last-child")?.textContent?.trim() || "";
+  const text = info?.textContent?.replace(/\s+/g, " ").trim() || "";
+  const ingestedAt = text.match(/Ingested\s+(.+)$/)?.[1];
+  return {
+    adapter: valueFor("Adapter") || "junit-generic",
+    project: info?.querySelector<HTMLElement>(".muted")?.textContent?.trim() || "",
+    source: "JUnit XML",
+    ingestedAt
+  };
+}
+
 function dispatchLegacy(id: string, eventName: string) {
   const element = document.getElementById(id) as HTMLInputElement | HTMLSelectElement | null;
   element?.dispatchEvent(new Event(eventName, { bubbles: true }));
 }
 
 function useLegacyRuns() {
-  const [state, setState] = React.useState({ options: readRunOptions(), selected: (document.getElementById("runHistory") as HTMLSelectElement | null)?.value || "", status: readText("storageStatus", "Checking status"), info: readText("runInfo") });
+  const [state, setState] = React.useState({ options: readRunOptions(), selected: (document.getElementById("runHistory") as HTMLSelectElement | null)?.value || "", status: readText("storageStatus", "Checking status"), info: readText("runInfo"), metadata: readRunMetadata() });
   React.useEffect(() => {
     const target = document.querySelector(".legacy-run-seam");
     if (!target) return;
-    const observer = new MutationObserver(() => setState({ options: readRunOptions(), selected: (document.getElementById("runHistory") as HTMLSelectElement | null)?.value || "", status: readText("storageStatus", "Checking status"), info: readText("runInfo") }));
+    const observer = new MutationObserver(() => setState({ options: readRunOptions(), selected: (document.getElementById("runHistory") as HTMLSelectElement | null)?.value || "", status: readText("storageStatus", "Checking status"), info: readText("runInfo"), metadata: readRunMetadata() }));
     observer.observe(target, { subtree: true, childList: true, characterData: true, attributes: true });
     return () => observer.disconnect();
   }, []);
@@ -203,8 +218,8 @@ function RunWorkspaceIsland() {
       </div>}
     </div>
     <div className="react-run-tools"><select aria-label="Filter stored runs" value={status} onChange={event => selectStatus(event.target.value)}><option value="">All stored runs</option><option value="PASSED">Runs containing passed results</option><option value="FAILED">Runs containing failed results</option><option value="ERROR">Runs containing errors</option><option value="SKIPPED">Runs containing skipped results</option></select></div>
-    <div className="react-run-meta"><span>{selected?.label || "No report selected"}</span><span>•</span><span>{selected ? relativeTime(selected.date) : "Awaiting report"}</span></div>
-    <div className="react-run-info"><p>{state.info || "Report metadata and test results will appear here."}</p></div>
+    <div className="react-run-meta"><strong>{state.metadata.adapter}</strong><span>•</span><span>{state.metadata.source}</span><span>•</span><span>Ingested {relativeTime(selected?.date || state.metadata.ingestedAt)}</span></div>
+    <div className="react-run-info"><strong>{selected?.label || "No report selected"}</strong>{state.metadata.project && <span>{state.metadata.project}</span>}</div>
     <p className="react-run-hint">Source XML remains the authority for every reported result.</p>
   </div>;
 }
