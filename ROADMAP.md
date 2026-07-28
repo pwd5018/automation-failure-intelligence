@@ -101,17 +101,27 @@ Transform the existing dashboard into a responsive investigation workspace witho
 
 Completed slices:
 
-- Add a workspace shell with a header, run sidebar, results workspace, and persistent desktop inspector surface.
+- Add a workspace shell with a header, results workspace, and persistent desktop inspector surface.
 - Establish the visual foundation for dense triage: compact summary metrics, clearer panel hierarchy, status accents, focus states, and bounded scrolling.
 - Preserve the existing result, failure-group, upload, storage-status, and detail element IDs while the layout is being migrated.
 - Keep the mobile layout stacked and usable; the inspector will become an overlay in a later slice.
 - Add center-panel tabs for Test Results and Failure Groups.
 - Move report ingestion into an accessible responsive drawer while preserving the existing upload element IDs and handlers.
 - Polish inspector interactions with copy-summary/evidence controls, visible copy feedback, and keyboard activation for failure-group rows.
+- Establish a Jira-inspired visual system with a compact triage hierarchy, stronger status accents, issue-style result cards, and responsive navigation behavior.
+- Remove the redundant project navigation rail; keep the Developer workspace available through one dedicated header action.
+- Adopt React with Vite as the Phase 7 frontend foundation for the remaining redesign work, while keeping the existing Express API, `/api/*` routes, `/developer.html`, upload flow, PostgreSQL persistence, and source-result semantics unchanged.
+- Migrate the header, status summary, and run workspace into React islands, including a searchable stored-run list, status-filter bridge, relative timestamps, and inline storage status.
+- Migrate the test triage list and cards into React, including responsive status/search controls, status-colored issue cards, attempt-history pills, expandable review warnings, and the existing result-detail selection seam.
+- Migrate the result and failure-group inspector into React, including compact stat pills, execution-trace timeline, disposition editing, prior suggestions, copy actions, and preserved API/navigation seams.
+- Add a command-style searchable run selector with keyboard navigation, highlighted options, relative timestamps, and preserved run/status/search bridge behavior.
+- Refine the summary into a compact four-metric status bar with a segmented outcome ratio and move run metadata into a concise adapter/source/relative-ingestion micro-bar.
 
 Planned follow-up slices:
 
-- Complete desktop, phone-sized, accessibility, and Vercel validation.
+- Complete Vercel validation, including production `/api/health`, uploads, demo loading, refresh persistence, and preview deployment checks. Desktop and phone-sized browser validation, local API/demo/refresh checks, and the accessibility sweep are complete; the upload control now has an explicit accessible name.
+
+Phase 7 handoff: the current UI foundation was merged through [PR #9](https://github.com/pwd5018/automation-failure-intelligence/pull/9) at merge commit `9dedf370ed0c0f4f25a8b9fe5089e0cb79dd4766`. Validation passed with `npm.cmd test` (33 tests) and live keyboard/copy inspector checks. The remaining production gate is the full desktop, phone-sized, accessibility, and Vercel validation record.
 
 ### Phase 8 - Manual ambiguity resolution (deferred)
 

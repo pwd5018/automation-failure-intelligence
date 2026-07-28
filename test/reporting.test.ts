@@ -327,6 +327,7 @@ test("larger reports retain every record, order, and source outcome", async () =
 
 test("dashboard source renders adapter and report metadata fields", async () => {
   const dashboard = await readFile(path.join(process.cwd(), "public", "index.html"), "utf8");
+  const frontend = await readFile(path.join(process.cwd(), "frontend", "src", "main.tsx"), "utf8");
   assert.match(dashboard, /reportMetadata/);
   assert.match(dashboard, /metadata-label/);
   assert.match(dashboard, /Adapter/);
@@ -348,6 +349,14 @@ test("dashboard source renders adapter and report metadata fields", async () => 
   assert.match(dashboard, /Attempt history/);
   assert.match(dashboard, /id="testTab"/);
   assert.match(dashboard, /id="groupTab"/);
+  assert.match(dashboard, /id="reactInspectorRoot"/);
+  assert.match(dashboard, /aria-label="JUnit XML report file"/);
+  assert.match(dashboard, /afi:result-detail/);
+  assert.match(frontend, /Execution trace/);
+  assert.match(frontend, /Save disposition/);
+  assert.match(frontend, /role="combobox"/);
+  assert.match(frontend, /ArrowDown/);
+  assert.match(frontend, /react-run-command/);
   assert.match(dashboard, /aria-controls="testPanel"/);
   assert.match(dashboard, /aria-controls="groupPanel"/);
   assert.match(dashboard, /function setCenterTab/);
@@ -357,7 +366,19 @@ test("dashboard source renders adapter and report metadata fields", async () => 
   assert.match(dashboard, /copyInspectorText/);
   assert.match(dashboard, /aria-live="polite"/);
   assert.match(dashboard, /role="button" tabindex="0" aria-label="Open failure group/);
+  assert.doesNotMatch(dashboard, /class="project-rail"/);
+  assert.doesNotMatch(dashboard, /aria-label="Project navigation"/);
+  assert.match(dashboard, /id="runWorkspace"/);
+  assert.match(dashboard, /id="reactHeaderRoot"/);
+  assert.match(dashboard, /id="reactSummaryRoot"/);
+  assert.match(dashboard, /id="reactRunWorkspaceRoot"/);
+  assert.match(dashboard, /class="legacy-run-seam"/);
+  assert.match(dashboard, /id="reactTriageRoot"/);
+  assert.match(dashboard, /class="legacy-test-seam"/);
+  assert.match(dashboard, /type="module" src="\/app\/assets\/index\.js"/);
+  assert.match(dashboard, /href="\/app\/assets\/index\.css"/);
   assert.match(dashboard, /developer\.html/);
+  assert.match(frontend, />Developer workspace<\/a>/);
   assert.doesNotMatch(dashboard, /async function devAll\(\)/);
 });
 

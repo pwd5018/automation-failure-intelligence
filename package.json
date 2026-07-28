@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "build": "tsc",
+    "build": "tsc && npm run frontend:build",
+    "frontend:build": "vite build --config vite.config.ts",
     "start": "node dist/server.js",
     "test": "npm run build && node --test dist/test/reporting.test.js",
     "purge:storage": "node scripts/purge-storage.mjs"
@@ -13,14 +14,19 @@
     "express": "^5.1.0",
     "fast-xml-parser": "^5.2.5",
     "multer": "^2.0.1",
-    "pg": "^8.22.0"
+    "pg": "^8.22.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
   },
   "devDependencies": {
     "@types/express": "^5.0.3",
     "@types/multer": "^2.0.0",
     "@types/pg": "^8.20.0",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.4",
     "tsx": "^4.20.3",
-    "typescript": "^5.8.3"
+    "typescript": "^5.9.3",
+    "vite": "^8.1.5"
   }
 }
-
