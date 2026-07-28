@@ -109,10 +109,14 @@ Completed slices:
 - Move report ingestion into an accessible responsive drawer while preserving the existing upload element IDs and handlers.
 - Polish inspector interactions with copy-summary/evidence controls, visible copy feedback, and keyboard activation for failure-group rows.
 - Establish a Jira-inspired visual system with a project navigation rail, compact triage hierarchy, stronger status accents, issue-style result cards, and responsive navigation behavior.
+- Adopt React with Vite as the Phase 7 frontend foundation for the remaining redesign work, while keeping the existing Express API, `/api/*` routes, `/developer.html`, upload flow, PostgreSQL persistence, and source-result semantics unchanged.
 
 Planned follow-up slices:
 
-- Complete desktop, phone-sized, accessibility, and Vercel validation.
+- Add the React/Vite frontend build and mount the dashboard at the existing `/` route without changing backend ownership.
+- Migrate the compact header, status summary, run workspace, triage cards, and inspector into focused components while preserving existing interaction seams.
+- Add the command-style run selector, relative metadata display, compact status bar, and execution-trace timeline from the approved redesign specification.
+- Complete desktop, phone-sized, accessibility, and Vercel validation, including `/api/health`, uploads, demo loading, refresh persistence, and preview deployment checks.
 
 Phase 7 handoff: the current UI foundation was merged through [PR #9](https://github.com/pwd5018/automation-failure-intelligence/pull/9) at merge commit `9dedf370ed0c0f4f25a8b9fe5089e0cb79dd4766`. Validation passed with `npm.cmd test` (33 tests) and live keyboard/copy inspector checks. The remaining production gate is the full desktop, phone-sized, accessibility, and Vercel validation record.
 
