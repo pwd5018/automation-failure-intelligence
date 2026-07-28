@@ -362,6 +362,8 @@ test("dashboard source renders adapter and report metadata fields", async () => 
   assert.match(dashboard, /id="runWorkspace"/);
   assert.match(dashboard, /id="reactHeaderRoot"/);
   assert.match(dashboard, /id="reactSummaryRoot"/);
+  assert.match(dashboard, /id="reactRunWorkspaceRoot"/);
+  assert.match(dashboard, /class="legacy-run-seam"/);
   assert.match(dashboard, /type="module" src="\/app\/assets\/index\.js"/);
   assert.match(dashboard, /href="\/app\/assets\/index\.css"/);
   assert.match(dashboard, /developer\.html/);

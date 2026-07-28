@@ -116,7 +116,86 @@ function SummaryIsland() {
   </div>;
 }
 
+type RunOption = { id: string; label: string; date?: string };
+
+function readRunOptions(): RunOption[] {
+  return Array.from(document.querySelectorAll<HTMLSelectElement>("#runHistory option")).filter(option => option.value).map(option => {
+    const match = option.textContent?.match(/(\d{4}-\d{2}-\d{2}T[^ ]+)$/);
+    return { id: option.value, label: option.textContent?.replace(/ - \d{4}-\d{2}-\d{2}T[^ ]+$/, "") || option.value, date: match?.[1] };
+  });
+}
+
+function relativeTime(value?: string) {
+  if (!value) return "Awaiting ingestion";
+  const elapsed = Date.now() - new Date(value).getTime();
+  if (!Number.isFinite(elapsed)) return value;
+  const minutes = Math.max(1, Math.round(elapsed / 60000));
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.round(hours / 24)}d ago`;
+}
+
+function dispatchLegacy(id: string, eventName: string) {
+  const element = document.getElementById(id) as HTMLInputElement | HTMLSelectElement | null;
+  element?.dispatchEvent(new Event(eventName, { bubbles: true }));
+}
+
+function useLegacyRuns() {
+  const [state, setState] = React.useState({ options: readRunOptions(), selected: (document.getElementById("runHistory") as HTMLSelectElement | null)?.value || "", status: readText("storageStatus", "Checking status"), info: readText("runInfo") });
+  React.useEffect(() => {
+    const target = document.querySelector(".legacy-run-seam");
+    if (!target) return;
+    const observer = new MutationObserver(() => setState({ options: readRunOptions(), selected: (document.getElementById("runHistory") as HTMLSelectElement | null)?.value || "", status: readText("storageStatus", "Checking status"), info: readText("runInfo") }));
+    observer.observe(target, { subtree: true, childList: true, characterData: true, attributes: true });
+    return () => observer.disconnect();
+  }, []);
+  return state;
+}
+
+function RunWorkspaceIsland() {
+  const state = useLegacyRuns();
+  const [query, setQuery] = React.useState("");
+  const [status, setStatus] = React.useState("");
+  const selected = state.options.find(option => option.id === state.selected) || state.options[0];
+  const visibleOptions = state.options.filter(option => option.label.toLowerCase().includes(query.toLowerCase()));
+  const selectRun = (id: string) => {
+    const legacy = document.getElementById("runHistory") as HTMLSelectElement | null;
+    if (!legacy) return;
+    legacy.value = id;
+    dispatchLegacy("runHistory", "change");
+  };
+  const selectStatus = (value: string) => {
+    setStatus(value);
+    const legacy = document.getElementById("runStatus") as HTMLSelectElement | null;
+    if (!legacy) return;
+    legacy.value = value;
+    dispatchLegacy("runStatus", "input");
+  };
+  const searchRuns = (value: string) => {
+    setQuery(value);
+    const legacy = document.getElementById("runSearch") as HTMLInputElement | null;
+    if (!legacy) return;
+    legacy.value = value;
+    dispatchLegacy("runSearch", "input");
+  };
+  return <div className="react-run-workspace">
+    <div className="react-run-heading"><div><span className="react-kicker">Run navigation</span><h2>Run workspace</h2></div><span className={`react-storage-dot ${state.status.toLowerCase().includes("postgres") ? "connected" : ""}`}><i />{state.status.replace(" connected", "")}</span></div>
+    <label className="react-run-label" htmlFor="reactRunSearch">Search or select a stored run</label>
+    <input id="reactRunSearch" className="react-run-search" value={query} onChange={event => searchRuns(event.target.value)} placeholder="Search builds, status, or environment" />
+    <div className="react-run-options" role="listbox" aria-label="Stored runs">
+      {visibleOptions.length ? visibleOptions.map(option => <button key={option.id} type="button" role="option" aria-selected={option.id === state.selected} className={`react-run-option ${option.id === state.selected ? "selected" : ""}`} onClick={() => selectRun(option.id)}><span>{option.label}</span><time>{relativeTime(option.date)}</time></button>) : <p className="react-run-empty">No matching stored runs</p>}
+    </div>
+    <div className="react-run-tools"><select aria-label="Filter stored runs" value={status} onChange={event => selectStatus(event.target.value)}><option value="">All stored runs</option><option value="PASSED">Runs containing passed results</option><option value="FAILED">Runs containing failed results</option><option value="ERROR">Runs containing errors</option><option value="SKIPPED">Runs containing skipped results</option></select></div>
+    <div className="react-run-meta"><span>{selected?.label || "No report selected"}</span><span>•</span><span>{selected ? relativeTime(selected.date) : "Awaiting report"}</span></div>
+    <div className="react-run-info"><p>{state.info || "Report metadata and test results will appear here."}</p></div>
+    <p className="react-run-hint">Source XML remains the authority for every reported result.</p>
+  </div>;
+}
+
 const headerRoot = document.getElementById("reactHeaderRoot");
 const summaryRoot = document.getElementById("reactSummaryRoot");
+const runRoot = document.getElementById("reactRunWorkspaceRoot");
 if (headerRoot) createRoot(headerRoot).render(<StrictMode><HeaderIsland /></StrictMode>);
 if (summaryRoot) createRoot(summaryRoot).render(<StrictMode><SummaryIsland /></StrictMode>);
+if (runRoot) createRoot(runRoot).render(<StrictMode><RunWorkspaceIsland /></StrictMode>);

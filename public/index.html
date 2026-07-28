@@ -1281,7 +1281,9 @@
         </div>
     </section>
     <section id="runWorkspace" class="run-grid">
-        <aside class="card" aria-label="Run navigation"><div class="run-sidebar-title">Run navigation</div><h2>Run workspace</h2>
+        <aside class="card" aria-label="Run navigation">
+            <div id="reactRunWorkspaceRoot"></div>
+            <div class="legacy-run-seam" aria-hidden="true"><div class="run-sidebar-title">Run navigation</div><h2>Run workspace</h2>
             <div id="storageStatus" class="storage-pill">Checking database...</div>
             <select id="runHistory" class="run-select">
                 <option value="">No ingested reports yet</option>
@@ -1294,7 +1296,7 @@
                 <option value="SKIPPED">Runs containing skipped results</option>
             </select><input id="runSearch" placeholder="Search stored runs" aria-label="Search stored runs"></div>
             <div id="runInfo"><p>Report metadata and test results will appear here.</p></div>
-            <div class="muted">Select a stored report to inspect.</div>
+            <div class="muted">Select a stored report to inspect.</div></div>
         </aside>
         <section class="card" aria-label="Test triage results"><div class="workspace-title">Selected run</div><h2>Test triage</h2>
             <nav class="center-tabs" aria-label="Triage views" role="tablist">
