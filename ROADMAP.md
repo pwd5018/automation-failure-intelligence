@@ -95,7 +95,7 @@ Add a focused result-detail surface for investigating one reported testcase at a
 - Mobile-friendly navigation from the run workspace and failure evidence.
 - Preserve the exact source contract and keep the main dashboard lightweight.
 
-### Phase 7 - UI redesign and triage workspace (in progress)
+### Phase 7 - UI redesign and triage workspace (implemented)
 
 Transform the existing dashboard into a responsive investigation workspace without changing parser semantics, source-result identity, or persistence contracts.
 
@@ -117,11 +117,7 @@ Completed slices:
 - Add a command-style searchable run selector with keyboard navigation, highlighted options, relative timestamps, and preserved run/status/search bridge behavior.
 - Refine the summary into a compact four-metric status bar with a segmented outcome ratio and move run metadata into a concise adapter/source/relative-ingestion micro-bar.
 
-Planned follow-up slices:
-
-- Complete Vercel validation, including production `/api/health`, uploads, demo loading, refresh persistence, and preview deployment checks. Desktop and phone-sized browser validation, local API/demo/refresh checks, and the accessibility sweep are complete; the upload control now has an explicit accessible name.
-
-Phase 7 handoff: the current UI foundation was merged through [PR #9](https://github.com/pwd5018/automation-failure-intelligence/pull/9) at merge commit `9dedf370ed0c0f4f25a8b9fe5089e0cb79dd4766`. Validation passed with `npm.cmd test` (33 tests) and live keyboard/copy inspector checks. The remaining production gate is the full desktop, phone-sized, accessibility, and Vercel validation record.
+Phase 7 closeout: the Jira-inspired React UI foundation was merged into `main` at merge commit `f8668c2`. Validation passed with `npm.cmd test` (33 tests), desktop and phone-sized browser checks, local API/demo/refresh checks, keyboard and copy inspector checks, and the accessibility sweep. The upload control has an explicit accessible name, and the redundant project navigation rail was removed in favor of one dedicated Developer workspace action. Vercel production smoke validation remains an external deployment check and was not independently observable from this workspace; it is not a code or test failure.
 
 ### Phase 8 - Manual ambiguity resolution (deferred)
 
