@@ -119,7 +119,18 @@ Completed slices:
 
 Phase 7 closeout: the Jira-inspired React UI foundation was merged into `main` at merge commit `f8668c2`. Validation passed with `npm.cmd test` (33 tests), desktop and phone-sized browser checks, local API/demo/refresh checks, keyboard and copy inspector checks, and the accessibility sweep. The upload control has an explicit accessible name, and the redundant project navigation rail was removed in favor of one dedicated Developer workspace action. Vercel production smoke validation remains an external deployment check and was not independently observable from this workspace; it is not a code or test failure.
 
-### Phase 8 - Manual ambiguity resolution (deferred)
+### Phase 8 - TestNG report producer sandbox (next)
+
+Build a repository-local fake web application and TestNG test suite that produces realistic report bundles for parser and ingestion development. This phase is test infrastructure, not part of the deployed Vercel runtime.
+
+- Add a small deterministic fake application with representative login, data-provider, retry, skip, failure, and error paths.
+- Add a TestNG producer project that emits the master TestNG JUnit XML plus individual suite/test XML files.
+- Capture detailed evidence, parameters, attempt ordering, timing, and per-file provenance in generated output.
+- Commit representative XML fixtures under `test/fixtures` for repeatable parser and bundle-ingestion regression tests.
+- Document local prerequisites and provide one command to regenerate the report bundle.
+- Use the generated bundle to define deduplication, enrichment, conflict, and source-provenance rules before implementing multi-file ingestion.
+
+### Phase 9 - Manual ambiguity resolution (deferred)
 
 Give users an explicit, run-scoped way to resolve metadata-poor TestNG groups without changing the source XML or global parser rules:
 
@@ -130,7 +141,7 @@ Give users an explicit, run-scoped way to resolve metadata-poor TestNG groups wi
 - Persist the resolution for that specific run and allow it to be reopened, edited, or reset.
 - Keep unresolved records visible as `NEEDS REVIEW` and retain every raw record for auditability.
 
-### Phase 9 - External ingestion and collaboration (future)
+### Phase 10 - External ingestion and collaboration (future)
 
 - CI/webhook ingestion.
 - Authentication.
