@@ -193,9 +193,89 @@ function RunWorkspaceIsland() {
   </div>;
 }
 
+type TriageAttempt = { label: string; tone: string; warning?: string };
+type TriageCard = { id: string; name: string; meta: string; status: string; tone: string; evidence: string; attempts: TriageAttempt[]; review: string };
+
+function readTriageCards(): TriageCard[] {
+  return Array.from(document.querySelectorAll<HTMLElement>('.legacy-test-seam .test-row')).map(row => {
+    const status = row.querySelector<HTMLElement>('.test-history > span')?.textContent?.trim() || 'UNKNOWN';
+    const attempts = Array.from(row.querySelectorAll<HTMLElement>('.attempt-history .attempt')).map(attempt => ({
+      label: attempt.textContent?.trim() || '',
+      tone: Array.from(attempt.classList).find(value => ['passed', 'failed', 'error', 'skipped'].includes(value)) || 'unknown',
+      warning: attempt.getAttribute('title') || undefined
+    }));
+    const metas = Array.from(row.querySelectorAll<HTMLElement>('.test-meta')).map(item => item.textContent?.trim() || '').filter(Boolean);
+    return {
+      id: row.id.replace(/^test-/, ''),
+      name: row.querySelector<HTMLElement>('.test-name')?.textContent?.trim() || 'Unnamed test',
+      meta: row.querySelector<HTMLElement>('.test-name + .test-meta')?.textContent?.trim() || '',
+      status,
+      tone: status.toLowerCase().replace(/\s+/g, '-'),
+      evidence: metas.filter(value => value !== row.querySelector<HTMLElement>('.test-name + .test-meta')?.textContent?.trim()).slice(-1)[0] || '',
+      attempts,
+      review: status === 'NEEDS REVIEW' ? metas.filter(value => !value.startsWith('Observed records:')).slice(-1)[0] || 'Sequence needs review' : ''
+    };
+  });
+}
+
+function useLegacyTriage() {
+  const [cards, setCards] = React.useState(readTriageCards);
+  React.useEffect(() => {
+    const target = document.querySelector('.legacy-test-seam');
+    if (!target) return;
+    const observer = new MutationObserver(() => setCards(readTriageCards()));
+    observer.observe(target, { subtree: true, childList: true, characterData: true, attributes: true });
+    return () => observer.disconnect();
+  }, []);
+  return cards;
+}
+
+function TriageCardView({ card, onOpen }: { card: TriageCard; onOpen: () => void }) {
+  return <button type="button" className={`react-triage-card ${card.tone}`} onClick={onOpen} aria-label={`Open ${card.name} result details`}>
+    <span className="react-triage-card-main">
+      <span className="react-triage-card-heading"><strong>{card.name}</strong><span className={`react-triage-status ${card.tone}`}>{card.status}</span></span>
+      <span className="react-triage-card-meta">{card.meta}</span>
+      {card.evidence && <span className="react-triage-evidence">{card.evidence}</span>}
+      {card.attempts.length > 0 && <span className="react-attempt-chain" aria-label="Attempt history">{card.attempts.map((attempt, index) => <React.Fragment key={`${attempt.label}-${index}`}><span className={`react-attempt-pill ${attempt.tone}`} title={attempt.warning}>{attempt.label}</span>{index < card.attempts.length - 1 && <span className="react-attempt-arrow" aria-hidden="true">→</span>}</React.Fragment>)}</span>}
+      {card.review && <details className="react-triage-warning" onClick={event => event.stopPropagation()}><summary>Retry metadata needs review</summary><span>{card.review}</span></details>}
+    </span>
+    <span className="react-triage-open" aria-hidden="true">›</span>
+  </button>;
+}
+
+function TriageIsland() {
+  const cards = useLegacyTriage();
+  const [status, setStatus] = React.useState((document.getElementById('testStatus') as HTMLSelectElement | null)?.value || '');
+  const [query, setQuery] = React.useState((document.getElementById('testSearch') as HTMLInputElement | null)?.value || '');
+  const filtered = cards.filter(card => {
+    const statusMatch = !status || (status === 'needs-review' ? card.status === 'NEEDS REVIEW' : card.status.toLowerCase() === status);
+    const queryMatch = !query || `${card.name} ${card.meta} ${card.evidence}`.toLowerCase().includes(query.toLowerCase());
+    return statusMatch && queryMatch;
+  });
+  const filterCards = (value: string) => {
+    setStatus(value);
+    const legacy = document.getElementById('testStatus') as HTMLSelectElement | null;
+    if (legacy) { legacy.value = value; dispatchLegacy('testStatus', 'input'); }
+  };
+  const searchCards = (value: string) => {
+    setQuery(value);
+    const legacy = document.getElementById('testSearch') as HTMLInputElement | null;
+    if (legacy) { legacy.value = value; dispatchLegacy('testSearch', 'input'); }
+  };
+  const openCard = (id: string) => document.getElementById(`test-${id}`)?.click();
+  return <div className="react-triage">
+    <div className="react-triage-heading"><div><span className="react-kicker">Test results</span><h3>Investigation queue</h3></div><span className="react-triage-count">{filtered.length} of {cards.length}</span></div>
+    <p className="react-triage-subtitle">Open a result to inspect source evidence and attempt history.</p>
+    <div className="react-triage-filters"><select aria-label="Filter test results" value={status} onChange={event => filterCards(event.target.value)}><option value="">All test results</option><option value="passed">Passed</option><option value="failed">Failed</option><option value="error">Error</option><option value="skipped">Skipped</option><option value="needs-review">Needs review</option></select><input aria-label="Search test results" placeholder="Search tests or classes" value={query} onChange={event => searchCards(event.target.value)} /></div>
+    <div className="react-triage-list">{filtered.length ? filtered.map(card => <TriageCardView key={card.id} card={card} onOpen={() => openCard(card.id)} />) : <p className="react-triage-empty">No matching test results.</p>}</div>
+  </div>;
+}
+
 const headerRoot = document.getElementById("reactHeaderRoot");
 const summaryRoot = document.getElementById("reactSummaryRoot");
 const runRoot = document.getElementById("reactRunWorkspaceRoot");
+const triageRoot = document.getElementById("reactTriageRoot");
 if (headerRoot) createRoot(headerRoot).render(<StrictMode><HeaderIsland /></StrictMode>);
 if (summaryRoot) createRoot(summaryRoot).render(<StrictMode><SummaryIsland /></StrictMode>);
 if (runRoot) createRoot(runRoot).render(<StrictMode><RunWorkspaceIsland /></StrictMode>);
+if (triageRoot) createRoot(triageRoot).render(<StrictMode><TriageIsland /></StrictMode>);

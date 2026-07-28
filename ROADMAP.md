@@ -111,10 +111,11 @@ Completed slices:
 - Establish a Jira-inspired visual system with a project navigation rail, compact triage hierarchy, stronger status accents, issue-style result cards, and responsive navigation behavior.
 - Adopt React with Vite as the Phase 7 frontend foundation for the remaining redesign work, while keeping the existing Express API, `/api/*` routes, `/developer.html`, upload flow, PostgreSQL persistence, and source-result semantics unchanged.
 - Migrate the header, status summary, and run workspace into React islands, including a searchable stored-run list, status-filter bridge, relative timestamps, and inline storage status.
+- Migrate the test triage list and cards into React, including responsive status/search controls, status-colored issue cards, attempt-history pills, expandable review warnings, and the existing result-detail selection seam.
 
 Planned follow-up slices:
 
-- Migrate the triage cards and inspector into focused React components while preserving existing interaction seams.
+- Migrate the result inspector into a focused React component while preserving existing interaction seams.
 - Add the command-style run selector, relative metadata display, compact status bar, and execution-trace timeline from the approved redesign specification.
 - Complete desktop, phone-sized, accessibility, and Vercel validation, including `/api/health`, uploads, demo loading, refresh persistence, and preview deployment checks.
 

@@ -1304,7 +1304,8 @@
                 <button id="groupTab" class="center-tab" type="button" role="tab" aria-selected="false" aria-controls="groupPanel">Failure groups</button>
             </nav>
             <div id="testPanel" class="triage-panel" role="tabpanel" aria-labelledby="testTab">
-                <h3>Test results</h3>
+                <div id="reactTriageRoot"></div>
+                <div class="legacy-test-seam" aria-hidden="true"><h3>Test results</h3>
                 <p class="muted">Each row is one logical test. TestNG retry attempts are retained inside the result history.</p>
             <div class="filters"><select id="testStatus" aria-label="Filter test results">
                 <option value="">All test results</option>
@@ -1315,7 +1316,7 @@
                 <option value="needs-review">Needs review</option>
             </select><input id="testSearch" placeholder="Search tests, classes, or parameters"
                             aria-label="Search test results"></div>
-            <div id="testResults" class="test-results"><p class="muted">No test results loaded yet.</p></div>
+            <div id="testResults" class="test-results"><p class="muted">No test results loaded yet.</p></div></div>
             </div>
             <div id="groupPanel" class="triage-panel" role="tabpanel" aria-labelledby="groupTab" hidden>
                 <div class="workspace-title">Confirmed evidence</div><h2>Failure groups</h2>
