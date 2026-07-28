@@ -1,0 +1,28 @@
+:root {
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  color: #172b4d;
+  background: #f7f8fa;
+}
+
+body {
+  margin: 0;
+}
+
+.migration-shell {
+  box-sizing: border-box;
+  max-width: 720px;
+  margin: 12vh auto;
+  padding: 32px;
+  background: #fff;
+  border: 1px solid #dfe1e6;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(9, 30, 66, 0.08);
+}
+
+.migration-eyebrow {
+  color: #0052cc;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
