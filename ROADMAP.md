@@ -90,7 +90,7 @@ Add a focused result-detail surface for investigating one reported testcase at a
 - Data-provider slice (implemented): metadata-rich repeated identities collapse into iterations/attempts; metadata-poor or ambiguous repeated identities remain grouped as `NEEDS REVIEW` with raw records and observed counts.
 - Result-detail slice (implemented): result rows and failure evidence open a focused detail workspace with iteration totals, outcome counts, and per-attempt evidence.
 - Result-classification slice (implemented): individual failed/review results accept persisted dispositions, Jira references, and notes; matching prior decisions are offered as confirmation suggestions on later runs.
-- Phase 7 is now reserved for the UI redesign and triage workspace; manual ambiguity resolution moves to Phase 8 and external ingestion/collaboration moves to Phase 9.
+- Phase 7 is now reserved for the UI redesign and triage workspace; the TestNG report producer sandbox is Phase 8, manual ambiguity resolution moves to Phase 9, and external ingestion/collaboration moves to Phase 10.
 - Remaining gate: complete the mobile/Vercel validation record for the detail workspace before claiming production closeout.
 - Mobile-friendly navigation from the run workspace and failure evidence.
 - Preserve the exact source contract and keep the main dashboard lightweight.
