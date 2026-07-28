@@ -215,6 +215,53 @@ body {
 .react-triage-open { color: #6b778c; font-size: 1.4rem; line-height: 1; }
 .react-triage-empty { margin: 14px 0; color: #6b778c; font-size: 0.78rem; }
 
+#reactInspectorRoot { min-width: 0; }
+.react-inspector-empty { color: #6b778c; }
+.react-inspector-empty p { margin: 12px 0 0; line-height: 1.5; }
+.react-inspector { color: #172b4d; }
+.react-inspector-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-bottom: 12px; border-bottom: 1px solid #dfe1e6; }
+.react-inspector-actions { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.react-inspector-actions button { min-height: 30px; padding: 0 8px; border: 1px solid #dfe1e6; border-radius: 6px; background: #fff; color: #42526e; font: inherit; font-size: 0.7rem; font-weight: 700; cursor: pointer; }
+.react-inspector-actions button:hover, .react-inspector-actions button:focus-visible { border-color: #4c9aff; color: #0052cc; outline: none; }
+.react-copy-status { margin: 10px 0; color: #006644; font-size: 0.72rem; font-weight: 700; }
+.react-inspector-title { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-top: 16px; }
+.react-inspector h2 { margin: 0; color: #172b4d; font-size: 1.2rem; overflow-wrap: anywhere; }
+.react-inspector h3 { margin: 18px 0 8px; color: #172b4d; font-size: 0.9rem; }
+.react-inspector-title p, .react-inspector-muted { margin: 5px 0 0; color: #6b778c; font-size: 0.74rem; line-height: 1.45; overflow-wrap: anywhere; }
+.react-inspector-status { flex: 0 0 auto; padding: 5px 8px; border-radius: 999px; background: #ebecf0; color: #42526e; font-size: 0.64rem; font-weight: 800; }
+.react-inspector-status.failed, .react-inspector-status.error { background: #ffebe6; color: #bf2600; }
+.react-inspector-status.passed { background: #e3fcef; color: #006644; }
+.react-inspector-status.skipped { background: #fff0b3; color: #7a5d00; }
+.react-inspector-status.review { background: #eae6ff; color: #403294; }
+.react-inspector-pills { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0; }
+.react-inspector-pills span { padding: 5px 8px; border: 1px solid #dfe1e6; border-radius: 999px; color: #42526e; font-size: 0.68rem; font-weight: 700; }
+.react-disposition { margin-top: 14px; padding: 12px; border: 1px solid #dfe1e6; border-radius: 8px; background: #f7f8fa; }
+.react-disposition-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.react-disposition-heading h3 { margin: 3px 0 0; }
+.react-disposition-heading > span { color: #6b778c; font-size: 0.68rem; }
+.react-disposition-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 10px; }
+.react-disposition label { display: grid; gap: 5px; margin-top: 9px; color: #42526e; font-size: 0.7rem; font-weight: 700; }
+.react-disposition select, .react-disposition input, .react-disposition textarea { width: 100%; box-sizing: border-box; padding: 8px 9px; border: 1px solid #b3bac5; border-radius: 6px; background: #fff; color: #172b4d; font: inherit; font-size: 0.76rem; font-weight: 400; }
+.react-disposition textarea { min-height: 64px; resize: vertical; }
+.react-disposition .react-button { margin-top: 10px; border: 0; }
+.react-suggestions { display: grid; gap: 5px; margin-top: 9px; }
+.react-suggestions small { color: #6b778c; font-size: 0.68rem; }
+.react-suggestions button { width: fit-content; padding: 5px 7px; border: 1px solid #cfd4ff; border-radius: 999px; background: #fff; color: #403294; font: inherit; font-size: 0.68rem; cursor: pointer; }
+.react-trace { margin: 10px 0 0 8px; padding-left: 16px; border-left: 2px solid #dfe1e6; }
+.react-trace-step { position: relative; display: flex; gap: 9px; padding: 0 0 14px; }
+.react-trace-step:last-child { padding-bottom: 0; }
+.react-trace-step > i { position: absolute; left: -22px; top: 3px; width: 9px; height: 9px; border-radius: 50%; background: #97a0af; }
+.react-trace-step > i.failed, .react-trace-step > i.error { background: #de350b; }
+.react-trace-step > i.skipped { background: #ffab00; }
+.react-trace-step > i.passed { background: #36b37e; }
+.react-trace-heading { display: flex; justify-content: space-between; gap: 8px; font-size: 0.76rem; }
+.react-trace-heading span { color: #6b778c; font-size: 0.68rem; }
+.react-trace-step p { margin: 4px 0 0; color: #6b778c; font-size: 0.72rem; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
+.react-evidence-list { display: grid; gap: 5px; }
+.react-evidence-list button { padding: 8px; border: 1px solid #dfe1e6; border-radius: 6px; background: #fff; color: #0052cc; font: inherit; font-size: 0.72rem; text-align: left; cursor: pointer; }
+.react-evidence-list button:hover, .react-evidence-list button:focus-visible { border-color: #4c9aff; outline: none; }
+.react-inspector pre { max-height: 220px; overflow: auto; padding: 10px; border-radius: 6px; background: #172b4d; color: #deebff; font-size: 0.7rem; white-space: pre-wrap; overflow-wrap: anywhere; }
+
 @media (max-width: 700px) {
   .react-header { align-items: flex-start; flex-direction: column; padding: 18px; }
   .react-header-actions { width: 100%; }
@@ -224,4 +271,7 @@ body {
   .react-metric:last-child { grid-column: 1 / -1; }
   .react-triage-filters { grid-template-columns: 1fr; }
   .react-triage-card-heading { flex-direction: column; gap: 6px; }
+  .react-inspector-title { flex-direction: column; }
+  .react-inspector-actions { justify-content: flex-start; }
+  .react-disposition-grid { grid-template-columns: 1fr; }
 }

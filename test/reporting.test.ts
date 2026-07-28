@@ -327,6 +327,7 @@ test("larger reports retain every record, order, and source outcome", async () =
 
 test("dashboard source renders adapter and report metadata fields", async () => {
   const dashboard = await readFile(path.join(process.cwd(), "public", "index.html"), "utf8");
+  const frontend = await readFile(path.join(process.cwd(), "frontend", "src", "main.tsx"), "utf8");
   assert.match(dashboard, /reportMetadata/);
   assert.match(dashboard, /metadata-label/);
   assert.match(dashboard, /Adapter/);
@@ -348,6 +349,10 @@ test("dashboard source renders adapter and report metadata fields", async () => 
   assert.match(dashboard, /Attempt history/);
   assert.match(dashboard, /id="testTab"/);
   assert.match(dashboard, /id="groupTab"/);
+  assert.match(dashboard, /id="reactInspectorRoot"/);
+  assert.match(dashboard, /afi:result-detail/);
+  assert.match(frontend, /Execution trace/);
+  assert.match(frontend, /Save disposition/);
   assert.match(dashboard, /aria-controls="testPanel"/);
   assert.match(dashboard, /aria-controls="groupPanel"/);
   assert.match(dashboard, /function setCenterTab/);

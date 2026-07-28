@@ -1324,7 +1324,7 @@
                 <div id="list" class="list"><p style="padding:20px">No failure groups yet.</p></div>
             </div>
         </section>
-        <aside id="detail" class="card detail" aria-label="Selected result inspector" aria-live="polite"><div class="inspector-title">Inspector</div><p>Select a failure group to inspect its evidence.</p></aside>
+        <aside id="detail" class="card detail" aria-label="Selected result inspector" aria-live="polite"><div id="reactInspectorRoot"></div><div id="legacyDetailSeam" hidden><div class="inspector-title">Inspector</div><p>Select a failure group to inspect its evidence.</p></div></aside>
     </section>
 </main>
     <script type="module" src="/app/assets/index.js"></script>
@@ -1471,6 +1471,13 @@
     }
 
     function renderTestDetail(payload) {
+        if ($('reactInspectorRoot')) {
+            const result = payload.result;
+            const siblings = (currentRun?.logicalTests || []).filter(test => detailGroupKey(test) === detailGroupKey(result));
+            payload.iterations = siblings.length ? siblings : [result];
+            window.dispatchEvent(new CustomEvent('afi:result-detail', {detail: payload}));
+            return;
+        }
         const result = payload.result;
         activeCopyPayloads = {
             result: [result.name, result.className || result.suite || '', result.suite || '', result.parameters || '', detailStatus(result)].filter(Boolean).join(' | '),
@@ -1558,6 +1565,10 @@
     }
 
     function renderDetail(group) {
+        if ($('reactInspectorRoot')) {
+            window.dispatchEvent(new CustomEvent('afi:group-detail', {detail: group || null}));
+            return;
+        }
         if (!group) {
             activeCopyPayloads = {};
             $('detail').innerHTML = '<p>Select a failure group to inspect its evidence.</p>';

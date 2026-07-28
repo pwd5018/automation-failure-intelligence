@@ -271,11 +271,117 @@ function TriageIsland() {
   </div>;
 }
 
+type InspectorPayload = any;
+
+function resultStatus(result: any) {
+  return result.needsReview ? "NEEDS REVIEW" : String(result.finalStatus || "unknown").toUpperCase();
+}
+
+function InspectorIsland() {
+  const [view, setView] = React.useState<{kind: "empty" | "result" | "group"; payload: InspectorPayload}>({kind: "empty", payload: null});
+  const [classification, setClassification] = React.useState("unknown");
+  const [jira, setJira] = React.useState("");
+  const [notes, setNotes] = React.useState("");
+  const [copyStatus, setCopyStatus] = React.useState("");
+  const [saving, setSaving] = React.useState(false);
+
+  React.useEffect(() => {
+    const onResult = (event: Event) => {
+      const payload = (event as CustomEvent).detail;
+      setView({kind: "result", payload});
+      setClassification(payload.disposition?.classification || "unknown");
+      setJira(payload.disposition?.jiraIssue?.key || "");
+      setNotes(payload.disposition?.notes || "");
+      setCopyStatus("");
+    };
+    const onGroup = (event: Event) => { setView({kind: "group", payload: (event as CustomEvent).detail}); setCopyStatus(""); };
+    const onClose = () => setView({kind: "empty", payload: null});
+    window.addEventListener("afi:result-detail", onResult);
+    window.addEventListener("afi:group-detail", onGroup);
+    window.addEventListener("afi:close-result-detail", onClose);
+    return () => {
+      window.removeEventListener("afi:result-detail", onResult);
+      window.removeEventListener("afi:group-detail", onGroup);
+      window.removeEventListener("afi:close-result-detail", onClose);
+    };
+  }, []);
+
+  const copy = async (text: string) => {
+    if (!text) return;
+    try { await navigator.clipboard.writeText(text); }
+    catch { const area = document.createElement("textarea"); area.value = text; document.body.appendChild(area); area.select(); document.execCommand("copy"); area.remove(); }
+    setCopyStatus("Copied to clipboard.");
+    window.setTimeout(() => setCopyStatus(""), 1800);
+  };
+  const back = () => (window as any).closeTestDetail?.();
+  const saveResult = async () => {
+    const payload = view.payload;
+    setSaving(true);
+    const response = await fetch(`/api/test-runs/${payload.run.id}/results/${payload.result.id}/disposition`, {method: "PATCH", headers: {"content-type": "application/json"}, body: JSON.stringify({classification, notes, jiraIssue: jira.trim() ? {key: jira.trim()} : null})});
+    setSaving(false);
+    if (!response.ok) { setCopyStatus("Unable to save disposition."); return; }
+    const next = await response.json();
+    setView({kind: "result", payload: next});
+    setClassification(next.disposition?.classification || "unknown");
+    setJira(next.disposition?.jiraIssue?.key || "");
+    setNotes(next.disposition?.notes || "");
+    setCopyStatus("Disposition saved.");
+  };
+  const saveGroup = async () => {
+    const group = view.payload;
+    setSaving(true);
+    const response = await fetch(`/api/failure-groups/${group.id}`, {method: "PATCH", headers: {"content-type": "application/json"}, body: JSON.stringify({classification, notes, jiraIssue: jira.trim() ? {key: jira.trim()} : null})});
+    setSaving(false);
+    if (response.ok) { setView({kind: "group", payload: await response.json()}); setCopyStatus("Disposition saved."); }
+    else setCopyStatus("Unable to save disposition.");
+  };
+  if (view.kind === "empty") return <div className="react-inspector-empty"><span className="react-kicker">Inspector</span><p>Select a result or failure group to inspect its evidence.</p></div>;
+  if (view.kind === "group") {
+    const group = view.payload;
+    const occurrences = group.selectedRunOccurrences ?? group.occurrences;
+    return <div className="react-inspector">
+      <InspectorToolbar title="Failure inspector" onBack={back} onCopy={() => copy([group.summary, (group.outcomes || []).join(" / ") || "FAILURE", `${occurrences} occurrence(s) in this run`].join(" | "))} copyLabel="Copy summary" />
+      {copyStatus && <div className="react-copy-status" aria-live="polite">{copyStatus}</div>}
+      <h2>{group.summary}</h2><p className="react-inspector-muted">{occurrences} occurrence(s) in this run · {group.occurrences} overall · {(group.outcomes || []).join(" / ") || "FAILURE"}</p>
+      <DispositionPanel classification={classification} jira={jira} notes={notes} onClassification={setClassification} onJira={setJira} onNotes={setNotes} onSave={saveGroup} saving={saving} />
+      <h3>Evidence by reported result</h3>
+      <div className="react-evidence-list">{(group.evidence || []).map((item: any) => <button key={`${item.runId}-${item.testId}`} type="button" onClick={() => (window as any).openEvidence?.(item.runId, item.testId)}>{item.outcome} · {item.testName} · {item.build}</button>)}</div>
+      <pre>{group.stackTrace || "No stack trace reported."}</pre>
+    </div>;
+  }
+  const payload = view.payload;
+  const result = payload.result;
+  const iterations = Array.isArray(payload.iterations) && payload.iterations.length ? payload.iterations : [result];
+  const attempts = (result.attempts || []);
+  const evidence = attempts.map((attempt: any, index: number) => `Attempt ${attempt.attemptNumber || index + 1} [${String(attempt.rawStatus || attempt.status || "UNKNOWN").toUpperCase()}]\n${attempt.message || ""}${attempt.stackTrace ? `\n${attempt.stackTrace}` : ""}`).join("\n\n");
+  const canClassify = result.needsReview || ["failed", "error"].includes(result.finalStatus) || attempts.some((attempt: any) => ["FAILED", "ERROR"].includes(attempt.rawStatus));
+  return <div className="react-inspector">
+    <InspectorToolbar title="Result inspector" onBack={back} onCopy={() => copy([result.name, result.className || result.suite || "", result.suite || "", result.parameters || "", resultStatus(result)].filter(Boolean).join(" | "))} onCopyEvidence={() => copy(evidence)} />
+    {copyStatus && <div className="react-copy-status" aria-live="polite">{copyStatus}</div>}
+    <div className="react-inspector-title"><div><h2>{result.name}</h2><p>{result.className || result.suite || ""}</p></div><span className={`react-inspector-status ${result.needsReview ? "review" : result.finalStatus}`}>{resultStatus(result)}</span></div>
+    <p className="react-inspector-muted">{payload.run.build || payload.run.id} · {payload.run.environment || "default"}</p>
+    <div className="react-inspector-pills"><span>{iterations.length} Iteration{iterations.length === 1 ? "" : "s"}</span><span>{attempts.length} Attempt{attempts.length === 1 ? "" : "s"}</span><span>{result.needsReview ? "Needs review" : resultStatus(result)}</span></div>
+    {canClassify && <DispositionPanel classification={classification} jira={jira} notes={notes} suggestions={payload.suggestions || []} onClassification={setClassification} onJira={setJira} onNotes={setNotes} onSave={saveResult} saving={saving} />}
+    <h3>Execution trace</h3>
+    <div className="react-trace">{attempts.length ? attempts.map((attempt: any, index: number) => <div className="react-trace-step" key={`${attempt.attemptNumber || index}-${attempt.rawStatus}`}><i className={String(attempt.rawStatus || attempt.status || "").toLowerCase()} /><div><div className="react-trace-heading"><strong>Attempt {attempt.attemptNumber || index + 1} · {String(attempt.rawStatus || attempt.status || "UNKNOWN").toUpperCase()}</strong><span>{attempt.duration ? `${attempt.duration}s` : ""}</span></div><p>{attempt.message || attempt.stackTrace || "No additional evidence reported."}</p></div></div>) : <p className="react-inspector-muted">No attempt evidence reported.</p>}</div>
+  </div>;
+}
+
+function InspectorToolbar({title, onBack, onCopy, onCopyEvidence, copyLabel = "Copy summary"}: {title: string; onBack: () => void; onCopy: () => void; onCopyEvidence?: () => void; copyLabel?: string}) {
+  return <div className="react-inspector-toolbar"><div><span className="react-kicker">{title}</span></div><div className="react-inspector-actions"><button type="button" onClick={onBack}>← Back</button><button type="button" onClick={onCopy}>▣ {copyLabel}</button>{onCopyEvidence && <button type="button" onClick={onCopyEvidence}>▤ Evidence</button>}</div></div>;
+}
+
+function DispositionPanel({classification, jira, notes, suggestions = [], onClassification, onJira, onNotes, onSave, saving}: {classification: string; jira: string; notes: string; suggestions?: any[]; onClassification: (value: string) => void; onJira: (value: string) => void; onNotes: (value: string) => void; onSave: () => void; saving: boolean}) {
+  return <section className="react-disposition"><div className="react-disposition-heading"><div><span className="react-kicker">Disposition</span><h3>Classify this result</h3></div><span>Manual only</span></div>{suggestions.length > 0 && <div className="react-suggestions"><small>Previous matching decisions</small>{suggestions.map((item: any) => <button key={`${item.classification}-${item.build || ""}`} type="button" onClick={() => { onClassification(item.classification); onJira(item.jiraIssue?.key || ""); onNotes(item.notes || ""); }}>{item.classification}{item.jiraIssue?.key ? ` · ${item.jiraIssue.key}` : ""}</button>)}</div>}<div className="react-disposition-grid"><label>Classification<select value={classification} onChange={event => onClassification(event.target.value)}><option value="unknown">Unknown</option><option value="product-defect">Product defect</option><option value="test-defect">Automation issue</option><option value="environment-issue">Environment issue</option><option value="test-data-issue">Test data issue</option><option value="known-failure">Known Jira issue</option><option value="duplicate">Duplicate</option></select></label><label>Jira issue<input value={jira} onChange={event => onJira(event.target.value)} placeholder="QA-123" /></label></div><label>Notes<textarea value={notes} onChange={event => onNotes(event.target.value)} placeholder="Why this classification applies" /></label><button type="button" className="react-button react-button-primary" onClick={onSave} disabled={saving}>{saving ? "Saving…" : "Save disposition"}</button></section>;
+}
+
 const headerRoot = document.getElementById("reactHeaderRoot");
 const summaryRoot = document.getElementById("reactSummaryRoot");
 const runRoot = document.getElementById("reactRunWorkspaceRoot");
 const triageRoot = document.getElementById("reactTriageRoot");
+const inspectorRoot = document.getElementById("reactInspectorRoot");
 if (headerRoot) createRoot(headerRoot).render(<StrictMode><HeaderIsland /></StrictMode>);
 if (summaryRoot) createRoot(summaryRoot).render(<StrictMode><SummaryIsland /></StrictMode>);
 if (runRoot) createRoot(runRoot).render(<StrictMode><RunWorkspaceIsland /></StrictMode>);
 if (triageRoot) createRoot(triageRoot).render(<StrictMode><TriageIsland /></StrictMode>);
+if (inspectorRoot) createRoot(inspectorRoot).render(<StrictMode><InspectorIsland /></StrictMode>);
