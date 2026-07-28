@@ -975,61 +975,9 @@
         }
 
         .shell {
-            display: grid;
-            grid-template-columns: 64px minmax(0, 1fr);
-            gap: 18px;
+            display: block;
             width: min(1540px, 100%);
             padding: 18px 22px 42px;
-        }
-
-        .shell > :not(.project-rail) {
-            grid-column: 2;
-        }
-
-        .project-rail {
-            position: sticky;
-            top: 18px;
-            grid-column: 1;
-            grid-row: 1 / span 5;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 10px;
-            min-height: calc(100vh - 60px);
-            padding: 12px 8px;
-            border-radius: 14px;
-            background: #172b4d;
-            box-shadow: 0 12px 28px #172b4d1c;
-        }
-
-        .project-rail-mark,
-        .project-rail-link {
-            display: grid;
-            width: 42px;
-            height: 42px;
-            place-items: center;
-            border-radius: 10px;
-            color: #c7d1e6;
-            font-size: 13px;
-            font-weight: 800;
-            text-decoration: none;
-        }
-
-        .project-rail-mark {
-            margin-bottom: 8px;
-            background: #4c6fff;
-            color: #fff;
-            letter-spacing: -.04em;
-        }
-
-        .project-rail-link:hover,
-        .project-rail-link[aria-current="page"] {
-            background: #29446d;
-            color: #fff;
-        }
-
-        .project-rail-spacer {
-            flex: 1;
         }
 
         .hero {
@@ -1182,36 +1130,11 @@
                 width: 100%;
             }
 
-            .project-rail {
-                position: static;
-                flex-direction: row;
-                min-height: 0;
-                margin-bottom: 14px;
-                padding: 8px;
-            }
-
-            .project-rail-mark {
-                margin: 0 6px 0 0;
-            }
-
-            .project-rail-spacer {
-                display: none;
-            }
-
-            .shell > :not(.project-rail) {
-                margin-bottom: 14px;
-            }
         }
 
         @media (max-width: 560px) {
             .shell {
                 padding: 10px 12px 30px;
-            }
-
-            .project-rail-link,
-            .project-rail-mark {
-                width: 38px;
-                height: 38px;
             }
 
             .hero {
@@ -1222,15 +1145,6 @@
 </head>
 <body>
     <main id="top" class="shell">
-    <nav class="project-rail" aria-label="Project navigation">
-        <a class="project-rail-mark" href="#top" aria-label="Automation Failure Intelligence home">AF</a>
-        <a class="project-rail-link" href="#summary" aria-current="page" aria-label="Overview">OV</a>
-        <a class="project-rail-link" href="#runWorkspace" aria-label="Runs">RU</a>
-        <a class="project-rail-link" href="#testPanel" aria-label="Test results">TR</a>
-        <a class="project-rail-link" href="#groupPanel" aria-label="Failure groups">FG</a>
-        <div class="project-rail-spacer"></div>
-        <a class="project-rail-link" href="/developer.html" target="_blank" rel="noopener" aria-label="Developer checks">DC</a>
-    </nav>
     <div id="reactHeaderRoot"></div>
     <header class="hero legacy-hero-seam" aria-hidden="true">
         <div>

@@ -366,8 +366,8 @@ test("dashboard source renders adapter and report metadata fields", async () => 
   assert.match(dashboard, /copyInspectorText/);
   assert.match(dashboard, /aria-live="polite"/);
   assert.match(dashboard, /role="button" tabindex="0" aria-label="Open failure group/);
-  assert.match(dashboard, /class="project-rail"/);
-  assert.match(dashboard, /aria-label="Project navigation"/);
+  assert.doesNotMatch(dashboard, /class="project-rail"/);
+  assert.doesNotMatch(dashboard, /aria-label="Project navigation"/);
   assert.match(dashboard, /id="runWorkspace"/);
   assert.match(dashboard, /id="reactHeaderRoot"/);
   assert.match(dashboard, /id="reactSummaryRoot"/);
@@ -378,6 +378,7 @@ test("dashboard source renders adapter and report metadata fields", async () => 
   assert.match(dashboard, /type="module" src="\/app\/assets\/index\.js"/);
   assert.match(dashboard, /href="\/app\/assets\/index\.css"/);
   assert.match(dashboard, /developer\.html/);
+  assert.match(frontend, />Developer workspace<\/a>/);
   assert.doesNotMatch(dashboard, /async function devAll\(\)/);
 });
 

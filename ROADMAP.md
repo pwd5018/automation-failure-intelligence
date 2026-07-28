@@ -101,14 +101,15 @@ Transform the existing dashboard into a responsive investigation workspace witho
 
 Completed slices:
 
-- Add a workspace shell with a header, run sidebar, results workspace, and persistent desktop inspector surface.
+- Add a workspace shell with a header, results workspace, and persistent desktop inspector surface.
 - Establish the visual foundation for dense triage: compact summary metrics, clearer panel hierarchy, status accents, focus states, and bounded scrolling.
 - Preserve the existing result, failure-group, upload, storage-status, and detail element IDs while the layout is being migrated.
 - Keep the mobile layout stacked and usable; the inspector will become an overlay in a later slice.
 - Add center-panel tabs for Test Results and Failure Groups.
 - Move report ingestion into an accessible responsive drawer while preserving the existing upload element IDs and handlers.
 - Polish inspector interactions with copy-summary/evidence controls, visible copy feedback, and keyboard activation for failure-group rows.
-- Establish a Jira-inspired visual system with a project navigation rail, compact triage hierarchy, stronger status accents, issue-style result cards, and responsive navigation behavior.
+- Establish a Jira-inspired visual system with a compact triage hierarchy, stronger status accents, issue-style result cards, and responsive navigation behavior.
+- Remove the redundant project navigation rail; keep the Developer workspace available through one dedicated header action.
 - Adopt React with Vite as the Phase 7 frontend foundation for the remaining redesign work, while keeping the existing Express API, `/api/*` routes, `/developer.html`, upload flow, PostgreSQL persistence, and source-result semantics unchanged.
 - Migrate the header, status summary, and run workspace into React islands, including a searchable stored-run list, status-filter bridge, relative timestamps, and inline storage status.
 - Migrate the test triage list and cards into React, including responsive status/search controls, status-colored issue cards, attempt-history pills, expandable review warnings, and the existing result-detail selection seam.

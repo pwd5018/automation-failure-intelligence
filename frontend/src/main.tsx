@@ -69,7 +69,7 @@ function HeaderIsland() {
       <div className="react-header-actions">
         <button type="button" className="react-button react-button-primary" onClick={() => clickLegacy("ingestionToggle")}>+ Ingest</button>
         <button type="button" className="react-button" onClick={() => clickLegacy("demo")}>Load demo</button>
-        <a className="react-icon-link" href="/developer.html" target="_blank" rel="noopener" aria-label="Open developer checks">DC</a>
+        <a className="react-icon-link" href="/developer.html" target="_blank" rel="noopener">Developer workspace</a>
       </div>
     </header>
   );
